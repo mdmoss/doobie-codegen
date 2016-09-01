@@ -12,10 +12,13 @@ class Generator(analysis: Analysis) {
   val target = analysis.target
   val tr = target.testDb
 
-  def checkTargetStatements(table: Table, statement: Statement, out: String) = {
+  def hasTargetStatements(table: Table, statement: Statement) = {
     val statementIsTargeted = target.statements.flatMap(_.get(table.ref.fullName)).exists(_.contains(statement))
+    (!target.statements.isDefined || statementIsTargeted)
+  }
 
-    if (target.statements.isDefined && !statementIsTargeted) {
+  def checkTargetStatements(table: Table, statement: Statement, out: String) = {
+    if (!hasTargetStatements(table, statement)) {
       s"/* ${statement.getClass.getCanonicalName} omitted because of StatementTypes */"
     } else {
       out
@@ -35,9 +38,6 @@ class Generator(analysis: Analysis) {
             |/* Todo handle imports better */
             |import doobie.imports._
             |import java.sql.Timestamp
-            |import doobie.contrib.postgresql.pgtypes._
-            |import scalaz._, Scalaz._
-            |import org.postgis._
             |
             |${genImports(t)}
             |
@@ -159,12 +159,20 @@ class Generator(analysis: Analysis) {
   def genImports(table: Table): String = {
     val types = getTypes(table)
 
-    if (types.contains(sql.JsonB)) {
-      s"""import argonaut.{Json, Parse}
-         |import org.postgresql.util.PGobject"""
-    } else {
-      ""
+    def ifElseEmpty(b: Boolean, xs: List[String]): List[String] = b match {
+      case true => xs
+      case false => Nil
     }
+
+    List(
+      ifElseEmpty(types.contains(sql.JsonB), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
+      ifElseEmpty(types.contains(sql.Geometry), List("org.postgis._")),
+      ifElseEmpty(hasTargetStatements(table, StatementTypes.MultiGet), List("doobie.contrib.postgresql.pgtypes._")),
+      ifElseEmpty(hasTargetStatements(table, StatementTypes.CreateMany), List("scalaz._, Scalaz._"))
+    )
+      .flatten
+      .map("import " + _)
+      .mkString("\n")
   }
 
   def genMisc(table: Table): String = {
