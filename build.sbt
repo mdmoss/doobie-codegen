@@ -21,6 +21,7 @@ lazy val out = (project in file("out"))
       "org.tpolecat"  %% "doobie-core"               % "0.2.3",
       "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.3",
       "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.3" % "test",
+      "org.scalaz"    %% "scalaz-core"               % "7.1.9",
       "org.specs2"    %% "specs2-core"               % "3.6.3" % "test"
     )
   )
@@ -34,6 +35,7 @@ lazy val test = (project in file("test"))
       "org.tpolecat"  %% "doobie-core"               % "0.2.3",
       "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.3",
       "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.3" % "test",
+      "org.scalaz"    %% "scalaz-core"               % "7.1.9",
       "org.specs2"    %% "specs2-core"               % "3.6.3" % "test"
     )
   )
