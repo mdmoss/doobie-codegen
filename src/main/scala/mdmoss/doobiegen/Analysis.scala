@@ -1,5 +1,7 @@
 package mdmoss.doobiegen
 
+import java.sql.Time
+
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
@@ -632,6 +634,8 @@ class Analysis(val model: DbModel, val target: Target) {
             case sql.Timestamp       => ScalaType("Timestamp", "new Timestamp(0L)", None)
             case sql.JsonB           => ScalaType("Json", "jEmptyObject", Some("argonaut"))
             case sql.Geometry        => ScalaType("PGgeometry", "new PGgeometry()", None)
+            case sql.SmallInt        => ScalaType("Short", "0.toShort", None)
+            case sql.Time            => ScalaType("Time", "new Time(0L)", None)
           }
       }
 

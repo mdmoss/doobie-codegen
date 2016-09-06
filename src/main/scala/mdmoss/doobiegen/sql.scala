@@ -9,9 +9,11 @@ object sql {
   case object DoublePrecision extends Type("double precision")
   case object Integer         extends Type("int")
   case object Text            extends Type("text")
+  case object Time            extends Type("time")
   case object Timestamp       extends Type("timestamp")
   case object JsonB           extends Type("jsonb")
   case object Geometry        extends Type("geometry")
+  case object SmallInt        extends Type("smallint")
 
   sealed trait TableProperty
 

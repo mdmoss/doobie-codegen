@@ -37,7 +37,7 @@ class Generator(analysis: Analysis) {
             |
             |/* Todo handle imports better */
             |import doobie.imports._
-            |import java.sql.Timestamp
+            |import java.sql.{Timestamp, Time}
             |
             |${genImports(t)}
             |
@@ -110,6 +110,7 @@ class Generator(analysis: Analysis) {
             |/* Todo handle imports better */
             |import doobie.imports._
             |import java.sql.Timestamp
+            |import java.sql.{Timestamp, Time}
             |import org.specs2.mutable.Specification
             |import scalaz.concurrent.Task
             |import doobie.contrib.specs2.analysisspec.AnalysisSpec
