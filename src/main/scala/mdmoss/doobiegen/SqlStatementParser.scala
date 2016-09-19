@@ -76,6 +76,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
         | ignoreCase("json") ~                     push(sql.Json)
         | ignoreCase("geometry") ~                 push(sql.Geometry)
         | ignoreCase("smallint") ~                 push(sql.SmallInt)
+        | ignoreCase("uuid") ~                     push(sql.Uuid)
       ) ~ OptionalWhitespace
   }
 

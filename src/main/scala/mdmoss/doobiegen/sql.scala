@@ -15,6 +15,7 @@ object sql {
   case object Json            extends Type("json")
   case object Geometry        extends Type("geometry")
   case object SmallInt        extends Type("smallint")
+  case object Uuid            extends Type("uuid")
 
   sealed trait TableProperty
 

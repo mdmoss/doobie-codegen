@@ -38,6 +38,7 @@ class Generator(analysis: Analysis) {
             |/* Todo handle imports better */
             |import doobie.imports._
             |import java.sql.{Timestamp, Time}
+            |import java.util.UUID
             |
             |${genImports(t)}
             |
@@ -116,6 +117,7 @@ class Generator(analysis: Analysis) {
             |import doobie.contrib.specs2.analysisspec.AnalysisSpec
             |import scalaz._, Scalaz._
             |import org.postgis._
+            |import java.util.UUID
             |
             |object ${a.targetObject(t)}Spec extends Specification with AnalysisSpec {
             |
@@ -169,7 +171,10 @@ class Generator(analysis: Analysis) {
       ifElseEmpty(types.contains(sql.JsonB), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
       ifElseEmpty(types.contains(sql.Json), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
       ifElseEmpty(types.contains(sql.Geometry), List("org.postgis._")),
-      ifElseEmpty(hasTargetStatements(table, StatementTypes.MultiGet), List("doobie.contrib.postgresql.pgtypes._")),
+      ifElseEmpty(
+        hasTargetStatements(table, StatementTypes.MultiGet) || getTypes(table).contains(sql.Uuid),
+        List("doobie.contrib.postgresql.pgtypes._")
+      ),
       ifElseEmpty(hasTargetStatements(table, StatementTypes.CreateMany), List("scalaz._, Scalaz._"))
     )
       .flatten

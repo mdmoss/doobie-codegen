@@ -11,7 +11,8 @@ CREATE TABLE test_types (
     timestampz_t TIMESTAMP WITH TIME ZONE,
     jsonb_t      JSONB,
     time_t       TIME,
-    short_t      SMALLINT
+    short_t      SMALLINT,
+    uuid_t       UUID
 );
 
 -- We've got to have a separate test because both JSON and JSONB use argonaut.Json on the other side and can't coexist.
