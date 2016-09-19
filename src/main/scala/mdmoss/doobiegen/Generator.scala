@@ -202,7 +202,7 @@ s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
     }
 
     val uuidArrayMeta = if (types.contains(sql.Uuid)) {
-      """implicit val UuidArrayMeta: Meta[Array[UUID]] = Meta.array("uuid", "_uuid")"""
+      """implicit val UuidArrayMeta: doobie.imports.Meta[Array[UUID]] = Meta.array("uuid", "_uuid")"""
     } else {
       ""
     }
