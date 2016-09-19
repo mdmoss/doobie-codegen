@@ -9,9 +9,14 @@ CREATE TABLE test_types (
     text_t       TEXT,
     timestamp_t  TIMESTAMP,
     timestampz_t TIMESTAMP WITH TIME ZONE,
-    json_t       JSONB,
+    jsonb_t      JSONB,
     time_t       TIME,
     short_t      SMALLINT
+);
+
+-- We've got to have a separate test because both JSON and JSONB use argonaut.Json on the other side and can't coexist.
+CREATE TABLE test_json_type(
+  data JSON
 );
 
 CREATE SCHEMA schema;

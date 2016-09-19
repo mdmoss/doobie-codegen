@@ -12,6 +12,7 @@ object sql {
   case object Time            extends Type("time")
   case object Timestamp       extends Type("timestamp")
   case object JsonB           extends Type("jsonb")
+  case object Json            extends Type("json")
   case object Geometry        extends Type("geometry")
   case object SmallInt        extends Type("smallint")
 

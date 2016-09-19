@@ -167,6 +167,7 @@ class Generator(analysis: Analysis) {
 
     List(
       ifElseEmpty(types.contains(sql.JsonB), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
+      ifElseEmpty(types.contains(sql.Json), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
       ifElseEmpty(types.contains(sql.Geometry), List("org.postgis._")),
       ifElseEmpty(hasTargetStatements(table, StatementTypes.MultiGet), List("doobie.contrib.postgresql.pgtypes._")),
       ifElseEmpty(hasTargetStatements(table, StatementTypes.CreateMany), List("scalaz._, Scalaz._"))
@@ -184,6 +185,12 @@ s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
   doobie.imports.Meta.other[PGobject]("jsonb").nxmap[Json](
     a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
     a => new PGobject <| (_.setType("jsonb")) <| (_.setValue(a.nospaces))
+  )"""
+    } else if (types.contains(sql.Json)) {
+s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
+  doobie.imports.Meta.other[PGobject]("json").nxmap[Json](
+    a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
+    a => new PGobject <| (_.setType("json")) <| (_.setValue(a.nospaces))
   )"""
     } else {
       ""

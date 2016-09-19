@@ -73,6 +73,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
         | ignoreCase("timestamp") ~                push(sql.Timestamp)
         | ignoreCase("time") ~                     push(sql.Time)
         | ignoreCase("jsonb") ~                    push(sql.JsonB)
+        | ignoreCase("json") ~                     push(sql.Json)
         | ignoreCase("geometry") ~                 push(sql.Geometry)
         | ignoreCase("smallint") ~                 push(sql.SmallInt)
       ) ~ OptionalWhitespace
