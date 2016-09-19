@@ -137,3 +137,7 @@ CREATE TABLE test_mutual_ref_b(
 );
 
 ALTER TABLE test_mutual_ref_a ADD COLUMN other BIGINT NOT NULL REFERENCES test_mutual_ref_b(id);
+
+CREATE TABLE test_uuid_multiget (
+  uuid UUID PRIMARY KEY
+);

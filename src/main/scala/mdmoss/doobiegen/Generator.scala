@@ -185,7 +185,7 @@ class Generator(analysis: Analysis) {
   def genMisc(table: Table): String = {
     val types = getTypes(table)
 
-    if (types.contains(sql.JsonB)) {
+    val jsonMeta = if (types.contains(sql.JsonB)) {
 s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
   doobie.imports.Meta.other[PGobject]("jsonb").nxmap[Json](
     a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
@@ -200,6 +200,14 @@ s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
     } else {
       ""
     }
+
+    val uuidArrayMeta = if (types.contains(sql.Uuid)) {
+      """implicit val UuidArrayMeta: Meta[Array[UUID]] = Meta.array("uuid", "_uuid")"""
+    } else {
+      ""
+    }
+
+    jsonMeta + "\n\n" + uuidArrayMeta
   }
 
   def genPkNewType(table: Table): String = {
