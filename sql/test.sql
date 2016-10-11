@@ -141,3 +141,27 @@ ALTER TABLE test_mutual_ref_a ADD COLUMN other BIGINT NOT NULL REFERENCES test_m
 CREATE TABLE test_uuid_multiget (
   uuid UUID PRIMARY KEY
 );
+
+-- doobie-codegen: off
+
+CREATE OR REPLACE FUNCTION update_modified_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.modified = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- doobie-codegen: on
+
+-- doobie-codegen: off
+
+CREATE OR REPLACE FUNCTION update_modified_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.modified = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- doobie-codegen: on

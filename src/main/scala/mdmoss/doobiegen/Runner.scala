@@ -58,6 +58,7 @@ object Runner {
     /* We need to clean the input a little */
     import ParserUtils.SqlStringHelpers
     val cleanedAndSplit = sql
+      .removeOffSections
       .stripComments
       .splitOnUnescapedSemicolons
       .map(_.trim)

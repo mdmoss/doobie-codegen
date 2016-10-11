@@ -12,6 +12,13 @@ object ParserUtils {
     def splitOnUnescapedSemicolons: Seq[String] = {
       splitOnUnescapedSemicolonsInner(List(), "", sql, 0)
     }
+
+    def offSections = "(?s)-- doobie-codegen: off.*?-- doobie-codegen: on".r
+
+    def removeOffSections: String = {
+      println(offSections.replaceAllIn(sql, ""))
+      offSections.replaceAllIn(sql, "").trim
+    }
   }
 
 
