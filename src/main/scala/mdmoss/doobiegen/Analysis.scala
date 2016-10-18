@@ -6,7 +6,7 @@ import java.util.UUID
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
-case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType)
+case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
 
 case class Insert(fn: FunctionDef)
 
@@ -648,7 +648,7 @@ class Analysis(val model: DbModel, val target: Target) {
       }
     }
 
-    def scalaRep = RowRepField(List(column), scalaName, scalaType)
+    def scalaRep = RowRepField(List(column), scalaName, scalaType, defaultValue = if (column.isNullible) Some("None") else None)
   }
 
   /* This is the type that should be used by other tables referring to the given column */
