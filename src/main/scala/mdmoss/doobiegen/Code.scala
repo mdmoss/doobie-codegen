@@ -27,15 +27,19 @@ case class Import(`package`: String) extends CodePart {
 
 case class FunctionDef(privatePkg: Option[String], name: String, params: Seq[FunctionParam], returnType: String, body: String) extends CodePart {
   def pp = {
-    val prv = privatePkg.map(p => s"private[$p] ").getOrElse("")
+    val scope = privatePkg.map(p => s"private[$p] ").getOrElse("")
+    val paramsString = params.map { _.renderAsParam }.mkString(", ")
 
-    s"""${prv}def $name(${params.map { p => s"${p.name}: ${p.`type`.symbol}" }.mkString(", ")}): $returnType = {
+    s"""${scope}def $name($paramsString): $returnType = {
        |${body.indent(2)}
        |}
      """.stripMargin
   }
 }
-case class FunctionParam(name: String, `type`: ScalaType)
+
+case class FunctionParam(name: String, `type`: ScalaType, default: Option[String] = None) {
+  def renderAsParam: String = s"$name: ${`type`.qualifiedSymbol}" + default.map(d => s" = $d").getOrElse("")
+}
 
 case class CaseClassDef(name: String, fields: Seq[CaseClassField]) extends CodePart {
   def pp = {

@@ -236,16 +236,7 @@ s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
     ppFunctionDef(create.fn)
   }
 
-  def ppFunctionDef(fn: FunctionDef): String = {
-    val scope = fn.privatePkg.map { p => s"private[$p]" }.getOrElse("")
-    val params = fn.params.map(f => s"${f.name}: ${f.`type`.qualifiedSymbol}").mkString(", ")
-
-    s"""$scope def ${fn.name}($params): ${fn.returnType} = {
-       |${fn.body}
-       |}
-     """.stripMargin
-
-  }
+  def ppFunctionDef(fn: FunctionDef): String = fn.pp
 
   def genGet(table: Table): String = {
     a.get(table).map { get =>
