@@ -6,7 +6,7 @@ import java.util.UUID
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
-case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType)
+case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
 
 case class Insert(fn: FunctionDef)
 
@@ -156,7 +156,8 @@ class Analysis(val model: DbModel, val target: Target) {
       case None =>
         /* In this case, we want to use unwrapped types, not the primary key - so we go back to the original rep */
         val rep = r.source.headOption.map(_.scalaRep).getOrElse(r)
-        FunctionParam(rep.scalaName, rep.scalaType)
+        val defaultIsNull = r.source.headOption.exists(_.isNullible)
+        FunctionParam(rep.scalaName, rep.scalaType, default = if (defaultIsNull) Some("None") else None)
     }
   }
 
@@ -202,7 +203,6 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def create(table: Table): Create = {
     val in = insert(table)
-    val params = in.fn.params.map(f => s"${f.name}: ${f.`type`.symbol}").mkString(", ")
     val rowType = rowNewType(table)
 
     val body =
@@ -648,7 +648,7 @@ class Analysis(val model: DbModel, val target: Target) {
       }
     }
 
-    def scalaRep = RowRepField(List(column), scalaName, scalaType)
+    def scalaRep = RowRepField(List(column), scalaName, scalaType, defaultValue = if (column.isNullible) Some("None") else None)
   }
 
   /* This is the type that should be used by other tables referring to the given column */
