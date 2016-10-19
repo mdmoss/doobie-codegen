@@ -167,6 +167,8 @@ $$ language 'plpgsql';
 -- doobie-codegen: on
 
 CREATE TABLE test_gen_options(
+  id BIGSERIAL PRIMARY KEY,
+
   -- this should be set to never be writeable, and hence should always use the default
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

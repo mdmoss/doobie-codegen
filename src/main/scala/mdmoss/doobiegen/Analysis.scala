@@ -3,10 +3,11 @@ package mdmoss.doobiegen
 import java.sql.Time
 import java.util.UUID
 
+import mdmoss.doobiegen.GenOptions.{GenOption, NoInsert, NoWrite, ScalaDefault}
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
-case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
+case class RowRepField(sourceTable: Table, source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
 
 case class Insert(fn: FunctionDef)
 
@@ -67,7 +68,7 @@ object Analysis {
     "package"
   )
 
-  val SkipInsert = Seq(
+  val DefaultNoWriteSqlTypes = Seq(
     sql.BigSerial
   )
 }
@@ -88,11 +89,21 @@ class Analysis(val model: DbModel, val target: Target) {
     t.ref.sqlName.toLowerCase == ref.sqlName.toLowerCase
   }.head
 
+  def columnOptions(table: Table, column: Column): List[GenOption] = {
+    target.columnOptions.get(table.ref.fullName).flatMap(_.get(column.sqlName)).toList.flatten
+  }
+
+  def isNoWrite(table: Table, column: Column): Boolean = {
+    val options = columnOptions(table, column)
+    DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite) || options.contains(NoInsert)
+  }
+
+  def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
 
   def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.primaryKeyColumns match {
     case Nil      => None
     case c :: Nil =>
-      val rep = c.scalaRep.copy(scalaName = "value")
+      val rep = c.scalaRep(table).copy(scalaName = "value")
       val symbol = c.sqlName.camelCase.capitalize
       val arb = merge(symbol, List(c.scalaType))
       Some(List(rep), ScalaType(symbol, arb, Some(fullTarget(table))))
@@ -103,12 +114,12 @@ class Analysis(val model: DbModel, val target: Target) {
     /* We'll put the primary key first, if any, then other components */
     val pkPart = pkNewType(table).map {
       case (reps, newType) => reps match {
-        case r :: Nil => RowRepField(r.source, r.source.head.scalaName, newType)
-        case rs       => RowRepField(rs.flatMap(_.source), "pk", newType)
+        case r :: Nil => RowRepField(table, r.source, r.source.head.scalaName, newType)
+        case rs       => RowRepField(table, rs.flatMap(_.source), "pk", newType)
       }
     }
 
-    val parts = pkPart.toList ++ table.nonPrimaryKeyColumns.map(_.scalaRep)
+    val parts = pkPart.toList ++ table.nonPrimaryKeyColumns.map(_.scalaRep(table))
     val arb = merge("Row", parts.map(_.scalaType))
     (parts, ScalaType("Row", arb, Some(fullTarget(table))))
   }
@@ -122,7 +133,7 @@ class Analysis(val model: DbModel, val target: Target) {
     * Sometimes Row == Shape, and that's fine. @Todo unify in these cases?
     */
   def rowShape(table: Table): (List[RowRepField], ScalaType) =  {
-    val parts = table.columns.filterNot(c => SkipInsert.contains(c.sqlType)).map(_.scalaRep)
+    val parts = table.columns.filterNot(isNoWrite(table, _)).map(_.scalaRep(table))
 
     (parts, ScalaType("Shape", merge("Shape", parts.map(_.scalaType)), Some(fullTarget(table))))
   }
@@ -155,19 +166,21 @@ class Analysis(val model: DbModel, val target: Target) {
         }
       case None =>
         /* In this case, we want to use unwrapped types, not the primary key - so we go back to the original rep */
-        val rep = r.source.headOption.map(_.scalaRep).getOrElse(r)
+        val rep = r.source.headOption.map(_.scalaRep(r.sourceTable)).getOrElse(r)
         val defaultIsNull = r.source.headOption.exists(_.isNullible)
-        FunctionParam(rep.scalaName, rep.scalaType, default = if (defaultIsNull) Some("None") else None)
+        FunctionParam(rep.scalaName, rep.scalaType, default = r.defaultValue)
     }
   }
 
   /* We somehow get information about row sources / values from different places. @Todo unify */
   def insert(table: Table): Insert = {
-    val params = rowNewType(table)._1.filterNot(r => SkipInsert.contains(r.source.head.sqlType)).map(getParam)
-    val values = rowNewType(table)._1.map(r => SkipInsert.contains(r.source.head.sqlType) match {
-      case true => "default"
-      case false => s"$${${getParam(r).name}}"
-    }).mkString(", ")
+
+    val params = rowNewType(table)._1.filterNot(isNoWrite(table, _)).map(getParam)
+
+    val values = rowNewType(table)._1.map(r =>
+      if   (isNoWrite(table, r))  "default"
+      else                        s"$${${getParam(r).name}}"
+    ).mkString(", ")
 
     val body =
       s"""sql\"\"\"
@@ -185,14 +198,14 @@ class Analysis(val model: DbModel, val target: Target) {
     val shape = rowShape(table)
     val rowType = rowNewType(table)
 
-    val spaces = rowType._1.map { rr => SkipInsert.contains(rr.source.head.sqlType) match {
-      case true => "default"
-      case false => "?"
-    } }.mkString(", ")
+    val values = rowNewType(table)._1.map(r =>
+      if   (isNoWrite(table, r)) "default"
+      else                        "?"
+    ).mkString(", ")
 
     val body =
       s"""
-        |val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($spaces)"
+        |val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($values)"
         |Update[${shape._2.symbol}](sql)
       """.stripMargin
 
@@ -567,7 +580,10 @@ class Analysis(val model: DbModel, val target: Target) {
     val row = rowNewType(table)
     val params = Seq(FunctionParam("row", row._2))
 
-    val innerUpdates = row._1.map(f => s"${f.source.head.sqlName} = $${row.${f.scalaName}}").mkString(", ")
+    val innerUpdates = row._1.map(f =>
+      if (isNoWrite(table, f)) s"${f.source.head.sqlName} = ${f.source.head.sqlName}"
+      else                      s"${f.source.head.sqlName} = $${row.${f.scalaName}}"
+    ).mkString(", ")
 
     val innerBody =
       s"""sql\"\"\"
@@ -648,7 +664,21 @@ class Analysis(val model: DbModel, val target: Target) {
       }
     }
 
-    def scalaRep = RowRepField(List(column), scalaName, scalaType, defaultValue = if (column.isNullible) Some("None") else None)
+    def scalaRep(table: Table) = {
+      val options = columnOptions(table, column)
+      val defaultOption = options.collect { case d @ ScalaDefault(_) => d }.headOption
+
+
+      RowRepField(
+        table,
+        List(column),
+        scalaName,
+        scalaType,
+        defaultValue = defaultOption match {
+          case Some(value) => Some(value.default)
+          case None        => if (column.isNullible) Some("None") else None
+        })
+    }
   }
 
   /* This is the type that should be used by other tables referring to the given column */
