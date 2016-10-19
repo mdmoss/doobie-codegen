@@ -165,3 +165,17 @@ END;
 $$ language 'plpgsql';
 
 -- doobie-codegen: on
+
+CREATE TABLE test_gen_options(
+  -- this should be set to never be writeable, and hence should always use the default
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  -- this should be given 'scala-default hello' and should use that as the default value
+  thing_with_default TEXT NOT NULL DEFAULT 'HELLO',
+
+  -- this should remain without a default
+  other_thing_with_default TEXT NOT NULL DEFAULT 'HELLO',
+
+  -- this should be given 'scala-default Some(hello)' and should use that as the default value
+  nullible_thing_with_default TEXT DEFAULT 'HELLO'
+);

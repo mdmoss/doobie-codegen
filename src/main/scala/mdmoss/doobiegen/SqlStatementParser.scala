@@ -80,7 +80,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
       ) ~ OptionalWhitespace
   }
 
-  def defaultChars = CharPredicate.Alpha ++ '_' ++ '-' ++ CharPredicate.Digit ++ '(' ++ ')' ++ ' ' ++ ','
+  def defaultChars = CharPredicate.Alpha ++ '_' ++ '-' ++ CharPredicate.Digit ++ '(' ++ ')' ++ ' ' ++ ',' ++ '\''
 
   /* This rule has to use parens, for an unknown reason */
   def ColumnProperty: Rule1[sql.ColumnProperty] = rule (

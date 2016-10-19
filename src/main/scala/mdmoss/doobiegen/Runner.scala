@@ -3,6 +3,7 @@ package mdmoss.doobiegen
 import java.io.{File, PrintWriter}
 import java.nio.file.Paths
 
+import mdmoss.doobiegen.GenOptions.GenOption
 import mdmoss.doobiegen.StatementTypes.Statement
 import mdmoss.doobiegen.output.SourceWriter
 import org.parboiled2.ParseError
@@ -18,7 +19,8 @@ object Runner {
     testDb: TestDatabase,
     src: String,
     `package`: String,
-    statements: Option[Map[String, List[Statement]]]
+    statements: Option[Map[String, List[Statement]]],
+    columnOptions: Map[String, Map[String, List[GenOption]]]
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
@@ -30,7 +32,7 @@ object Runner {
       testDb: TestDatabase,
       src: String,
       `package`: String
-    ): Target = Target(schemaDir, testDb, src, `package`, None)
+    ): Target = Target(schemaDir, testDb, src, `package`, None, Map())
   }
 
   val Default = Target(
@@ -128,10 +130,6 @@ object Runner {
     } else {
       file.delete()
     }
-  }
-
-  def main(args: Array[String]) = {
-    run(Default)
   }
 
   val Seperator = "*" * 80
