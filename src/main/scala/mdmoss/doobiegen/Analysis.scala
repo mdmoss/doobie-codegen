@@ -95,7 +95,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def isNoWrite(table: Table, column: Column): Boolean = {
     val options = columnOptions(table, column)
-    DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite) || options.contains(NoInsert)
+    DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite)
   }
 
   def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
