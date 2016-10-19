@@ -1,9 +1,6 @@
 package mdmoss.doobiegen
 
-import java.sql.Time
-import java.util.UUID
-
-import mdmoss.doobiegen.GenOptions.{GenOption, NoWrite, ScalaDefault}
+import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, NoWrite}
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
@@ -98,7 +95,13 @@ class Analysis(val model: DbModel, val target: Target) {
     DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite)
   }
 
+  def isNoInsert(table: Table, column: Column): Boolean = {
+    val options = columnOptions(table, column)
+    options.contains(AlwaysInsertDefault) || isNoWrite(table, column)
+  }
+
   def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
+  def isNoInsert(table: Table, rowRepField: RowRepField): Boolean = isNoInsert(table, rowRepField.source.head)
 
   def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.primaryKeyColumns match {
     case Nil      => None
@@ -133,7 +136,7 @@ class Analysis(val model: DbModel, val target: Target) {
     * Sometimes Row == Shape, and that's fine. @Todo unify in these cases?
     */
   def rowShape(table: Table): (List[RowRepField], ScalaType) =  {
-    val parts = table.columns.filterNot(isNoWrite(table, _)).map(_.scalaRep(table))
+    val parts = table.columns.filterNot(isNoInsert(table, _)).map(_.scalaRep(table))
 
     (parts, ScalaType("Shape", merge("Shape", parts.map(_.scalaType)), Some(fullTarget(table))))
   }
@@ -175,10 +178,10 @@ class Analysis(val model: DbModel, val target: Target) {
   /* We somehow get information about row sources / values from different places. @Todo unify */
   def insert(table: Table): Insert = {
 
-    val params = rowNewType(table)._1.filterNot(isNoWrite(table, _)).map(getParam)
+    val params = rowNewType(table)._1.filterNot(isNoInsert(table, _)).map(getParam)
 
     val values = rowNewType(table)._1.map(r =>
-      if   (isNoWrite(table, r))  "default"
+      if   (isNoInsert(table, r))  "default"
       else                        s"$${${getParam(r).name}}"
     ).mkString(", ")
 
@@ -199,7 +202,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val rowType = rowNewType(table)
 
     val values = rowNewType(table)._1.map(r =>
-      if   (isNoWrite(table, r)) "default"
+      if   (isNoInsert(table, r)) "default"
       else                        "?"
     ).mkString(", ")
 
@@ -604,18 +607,13 @@ class Analysis(val model: DbModel, val target: Target) {
 
     def scalaRep(table: Table) = {
       val options = columnOptions(table, column)
-      val defaultOption = options.collect { case d @ ScalaDefault(_) => d }.headOption
-
 
       RowRepField(
         table,
         List(column),
         scalaName,
         scalaType,
-        defaultValue = defaultOption match {
-          case Some(value) => Some(value.default)
-          case None        => if (column.isNullible) Some("None") else None
-        })
+        defaultValue = if (column.isNullible) Some("None") else None)
     }
   }
 

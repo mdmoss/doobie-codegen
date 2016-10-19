@@ -19,8 +19,8 @@ object TestGen {
     columnOptions = Map(
       "test_gen_options" -> Map(
         "created_at" -> (NoWrite :: Nil),
-        "thing_with_default" -> (ScalaDefault("\"Hello\"") :: Nil),
-        "nullible_thing_with_default" -> (ScalaDefault("Some(\"Hello\")") :: Nil)
+        "thing_with_default" -> (AlwaysInsertDefault :: Nil),
+        "nullible_thing_with_default" -> (AlwaysInsertDefault :: Nil)
       )
     )
   )
