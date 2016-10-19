@@ -510,68 +510,6 @@ class Analysis(val model: DbModel, val target: Target) {
         }
 
     }
-
-/*
-
-    val fkMultigets = table.columns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible =>
-
-
-
-        val condition = c.reference match {
-          case Some(ref) => s"${c.sqlName} = ANY($${{${c.scalaName}}.map(_.value).toArray})"
-          case None => s"${c.sqlName} = ANY($${{${c.scalaName}}.toArray})"
-        }
-
-        val innerBody =
-          s"""sql\"\"\"
-              |  SELECT ${rowType._1.sqlColumnsInTable(table)}
-              |  FROM ${table.ref.fullName}
-              |  WHERE $condition
-              |\"\"\".query[${rowType._2.symbol}]
-       """.stripMargin
-
-        val inner = FunctionDef(Some(privateScope(table)), s"multigetBy${c.unsafeScalaName.capitalize}Inner", params, s"Query0[${rowType._2.symbol}]", innerBody)
-
-        val outerBody = s"""${inner.name}(${params.head.name}).list"""
-
-        val outer = FunctionDef(None, s"multigetBy${c.unsafeScalaName.capitalize}", params, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
-
-        Seq(MultiGet(inner, outer))
-
-      case _ => Seq()
-    }
-
-    val singularFkMultigets = table.columns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible =>
-
-        val params = List(FunctionParam(c.scalaName, c.scalaType))
-
-        val condition = c.reference match {
-          case Some(ref) => s"${c.sqlName} = $${${c.scalaName}}"
-          case None => s"${c.sqlName} = $${${c.scalaName}}"
-        }
-
-        val innerBody =
-          s"""sql\"\"\"
-              |  SELECT ${rowType._1.sqlColumnsInTable(table)}
-              |  FROM ${table.ref.fullName}
-              |  WHERE $condition
-              |\"\"\".query[${rowType._2.symbol}]
-       """.stripMargin
-
-        val inner = FunctionDef(Some(privateScope(table)), s"getBy${c.unsafeScalaName.capitalize}Inner", params, s"Query0[${rowType._2.symbol}]", innerBody)
-
-        val outerBody = s"""${inner.name}(${params.head.name}).list"""
-
-        val outer = FunctionDef(None, s"getBy${c.unsafeScalaName.capitalize}", params, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
-
-        Seq(MultiGet(inner, outer))
-
-      case _ => Seq()
-    }
-
-    pkMultiget ++ fkMultigets ++ singularFkMultigets*/
   }
 
   /* This contains some hacks. @Todo fix */
