@@ -164,7 +164,7 @@ class Analysis(val model: DbModel, val target: Target) {
       case Some(sql.References(fTable, fCol)) =>
         val p = paramType(fTable, getColumn(fTable, fCol)).copy(name = r.scalaName)
         r.source.head.isNullible match {
-          case true => p.copy(`type` = p.`type`.copy(symbol = s"Option[${p.`type`.qualifiedSymbol}]", "None", None))
+          case true => p.copy(`type` = p.`type`.copy(symbol = s"Option[${p.`type`.qualifiedSymbol}]", "None", None), default = Some("None"))
           case false => p
         }
       case None =>

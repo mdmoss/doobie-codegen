@@ -181,3 +181,8 @@ CREATE TABLE test_gen_options(
   -- this should be given 'scala-default Some(hello)' and should use that as the default value
   nullible_thing_with_default TEXT DEFAULT 'HELLO'
 );
+
+CREATE TABLE test_nullible_fk_default(
+  id BIGSERIAL PRIMARY KEY,
+  fk BIGINT REFERENCES test_gen_options(id)
+);
