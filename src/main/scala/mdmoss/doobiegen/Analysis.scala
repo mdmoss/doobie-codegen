@@ -3,7 +3,7 @@ package mdmoss.doobiegen
 import java.sql.Time
 import java.util.UUID
 
-import mdmoss.doobiegen.GenOptions.{GenOption, NoInsert, NoWrite, ScalaDefault}
+import mdmoss.doobiegen.GenOptions.{GenOption, NoWrite, ScalaDefault}
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
