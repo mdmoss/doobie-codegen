@@ -1,12 +1,10 @@
 package mdmoss.doobiegen
 
-import java.sql.Time
-import java.util.UUID
-
+import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, NoWrite}
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
-case class RowRepField(source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
+case class RowRepField(sourceTable: Table, source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
 
 case class Insert(fn: FunctionDef)
 
@@ -67,7 +65,7 @@ object Analysis {
     "package"
   )
 
-  val SkipInsert = Seq(
+  val DefaultNoWriteSqlTypes = Seq(
     sql.BigSerial
   )
 }
@@ -88,11 +86,27 @@ class Analysis(val model: DbModel, val target: Target) {
     t.ref.sqlName.toLowerCase == ref.sqlName.toLowerCase
   }.head
 
+  def columnOptions(table: Table, column: Column): List[GenOption] = {
+    target.columnOptions.get(table.ref.fullName).flatMap(_.get(column.sqlName)).toList.flatten
+  }
+
+  def isNoWrite(table: Table, column: Column): Boolean = {
+    val options = columnOptions(table, column)
+    DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite)
+  }
+
+  def isNoInsert(table: Table, column: Column): Boolean = {
+    val options = columnOptions(table, column)
+    options.contains(AlwaysInsertDefault) || isNoWrite(table, column)
+  }
+
+  def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
+  def isNoInsert(table: Table, rowRepField: RowRepField): Boolean = isNoInsert(table, rowRepField.source.head)
 
   def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.primaryKeyColumns match {
     case Nil      => None
     case c :: Nil =>
-      val rep = c.scalaRep.copy(scalaName = "value")
+      val rep = c.scalaRep(table).copy(scalaName = "value")
       val symbol = c.sqlName.camelCase.capitalize
       val arb = merge(symbol, List(c.scalaType))
       Some(List(rep), ScalaType(symbol, arb, Some(fullTarget(table))))
@@ -103,12 +117,12 @@ class Analysis(val model: DbModel, val target: Target) {
     /* We'll put the primary key first, if any, then other components */
     val pkPart = pkNewType(table).map {
       case (reps, newType) => reps match {
-        case r :: Nil => RowRepField(r.source, r.source.head.scalaName, newType)
-        case rs       => RowRepField(rs.flatMap(_.source), "pk", newType)
+        case r :: Nil => RowRepField(table, r.source, r.source.head.scalaName, newType)
+        case rs       => RowRepField(table, rs.flatMap(_.source), "pk", newType)
       }
     }
 
-    val parts = pkPart.toList ++ table.nonPrimaryKeyColumns.map(_.scalaRep)
+    val parts = pkPart.toList ++ table.nonPrimaryKeyColumns.map(_.scalaRep(table))
     val arb = merge("Row", parts.map(_.scalaType))
     (parts, ScalaType("Row", arb, Some(fullTarget(table))))
   }
@@ -122,7 +136,7 @@ class Analysis(val model: DbModel, val target: Target) {
     * Sometimes Row == Shape, and that's fine. @Todo unify in these cases?
     */
   def rowShape(table: Table): (List[RowRepField], ScalaType) =  {
-    val parts = table.columns.filterNot(c => SkipInsert.contains(c.sqlType)).map(_.scalaRep)
+    val parts = table.columns.filterNot(isNoInsert(table, _)).map(_.scalaRep(table))
 
     (parts, ScalaType("Shape", merge("Shape", parts.map(_.scalaType)), Some(fullTarget(table))))
   }
@@ -155,19 +169,21 @@ class Analysis(val model: DbModel, val target: Target) {
         }
       case None =>
         /* In this case, we want to use unwrapped types, not the primary key - so we go back to the original rep */
-        val rep = r.source.headOption.map(_.scalaRep).getOrElse(r)
+        val rep = r.source.headOption.map(_.scalaRep(r.sourceTable)).getOrElse(r)
         val defaultIsNull = r.source.headOption.exists(_.isNullible)
-        FunctionParam(rep.scalaName, rep.scalaType, default = if (defaultIsNull) Some("None") else None)
+        FunctionParam(rep.scalaName, rep.scalaType, default = r.defaultValue)
     }
   }
 
   /* We somehow get information about row sources / values from different places. @Todo unify */
   def insert(table: Table): Insert = {
-    val params = rowNewType(table)._1.filterNot(r => SkipInsert.contains(r.source.head.sqlType)).map(getParam)
-    val values = rowNewType(table)._1.map(r => SkipInsert.contains(r.source.head.sqlType) match {
-      case true => "default"
-      case false => s"$${${getParam(r).name}}"
-    }).mkString(", ")
+
+    val params = rowNewType(table)._1.filterNot(isNoInsert(table, _)).map(getParam)
+
+    val values = rowNewType(table)._1.map(r =>
+      if   (isNoInsert(table, r))  "default"
+      else                        s"$${${getParam(r).name}}"
+    ).mkString(", ")
 
     val body =
       s"""sql\"\"\"
@@ -185,14 +201,14 @@ class Analysis(val model: DbModel, val target: Target) {
     val shape = rowShape(table)
     val rowType = rowNewType(table)
 
-    val spaces = rowType._1.map { rr => SkipInsert.contains(rr.source.head.sqlType) match {
-      case true => "default"
-      case false => "?"
-    } }.mkString(", ")
+    val values = rowNewType(table)._1.map(r =>
+      if   (isNoInsert(table, r)) "default"
+      else                        "?"
+    ).mkString(", ")
 
     val body =
       s"""
-        |val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($spaces)"
+        |val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($values)"
         |Update[${shape._2.symbol}](sql)
       """.stripMargin
 
@@ -497,68 +513,6 @@ class Analysis(val model: DbModel, val target: Target) {
         }
 
     }
-
-/*
-
-    val fkMultigets = table.columns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible =>
-
-
-
-        val condition = c.reference match {
-          case Some(ref) => s"${c.sqlName} = ANY($${{${c.scalaName}}.map(_.value).toArray})"
-          case None => s"${c.sqlName} = ANY($${{${c.scalaName}}.toArray})"
-        }
-
-        val innerBody =
-          s"""sql\"\"\"
-              |  SELECT ${rowType._1.sqlColumnsInTable(table)}
-              |  FROM ${table.ref.fullName}
-              |  WHERE $condition
-              |\"\"\".query[${rowType._2.symbol}]
-       """.stripMargin
-
-        val inner = FunctionDef(Some(privateScope(table)), s"multigetBy${c.unsafeScalaName.capitalize}Inner", params, s"Query0[${rowType._2.symbol}]", innerBody)
-
-        val outerBody = s"""${inner.name}(${params.head.name}).list"""
-
-        val outer = FunctionDef(None, s"multigetBy${c.unsafeScalaName.capitalize}", params, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
-
-        Seq(MultiGet(inner, outer))
-
-      case _ => Seq()
-    }
-
-    val singularFkMultigets = table.columns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible =>
-
-        val params = List(FunctionParam(c.scalaName, c.scalaType))
-
-        val condition = c.reference match {
-          case Some(ref) => s"${c.sqlName} = $${${c.scalaName}}"
-          case None => s"${c.sqlName} = $${${c.scalaName}}"
-        }
-
-        val innerBody =
-          s"""sql\"\"\"
-              |  SELECT ${rowType._1.sqlColumnsInTable(table)}
-              |  FROM ${table.ref.fullName}
-              |  WHERE $condition
-              |\"\"\".query[${rowType._2.symbol}]
-       """.stripMargin
-
-        val inner = FunctionDef(Some(privateScope(table)), s"getBy${c.unsafeScalaName.capitalize}Inner", params, s"Query0[${rowType._2.symbol}]", innerBody)
-
-        val outerBody = s"""${inner.name}(${params.head.name}).list"""
-
-        val outer = FunctionDef(None, s"getBy${c.unsafeScalaName.capitalize}", params, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
-
-        Seq(MultiGet(inner, outer))
-
-      case _ => Seq()
-    }
-
-    pkMultiget ++ fkMultigets ++ singularFkMultigets*/
   }
 
   /* This contains some hacks. @Todo fix */
@@ -567,7 +521,10 @@ class Analysis(val model: DbModel, val target: Target) {
     val row = rowNewType(table)
     val params = Seq(FunctionParam("row", row._2))
 
-    val innerUpdates = row._1.map(f => s"${f.source.head.sqlName} = $${row.${f.scalaName}}").mkString(", ")
+    val innerUpdates = row._1.map(f =>
+      if (isNoWrite(table, f)) s"${f.source.head.sqlName} = ${f.source.head.sqlName}"
+      else                      s"${f.source.head.sqlName} = $${row.${f.scalaName}}"
+    ).mkString(", ")
 
     val innerBody =
       s"""sql\"\"\"
@@ -648,7 +605,16 @@ class Analysis(val model: DbModel, val target: Target) {
       }
     }
 
-    def scalaRep = RowRepField(List(column), scalaName, scalaType, defaultValue = if (column.isNullible) Some("None") else None)
+    def scalaRep(table: Table) = {
+      val options = columnOptions(table, column)
+
+      RowRepField(
+        table,
+        List(column),
+        scalaName,
+        scalaType,
+        defaultValue = if (column.isNullible) Some("None") else None)
+    }
   }
 
   /* This is the type that should be used by other tables referring to the given column */
