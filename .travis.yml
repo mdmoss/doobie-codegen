@@ -1,0 +1,42 @@
+language: scala
+scala:
+    2.11.8
+
+sudo: required
+
+env:
+  global:
+    - PGPORT=5432
+
+services:
+  - postgresql
+addons:
+  apt:
+    packages:
+    - postgresql-9.5
+    - postgresql-contrib-9.5
+  postgresql: "9.5"
+jdk: oraclejdk8
+
+before_script:
+  - sudo sh -c 'echo "port = 5432" >> /etc/postgresql/9.5/main/postgresql.conf'
+  - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
+  - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
+  - sudo service postgresql restart
+
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION run out/test
+
+before_cache:
+  # Clean up transient build files so they don't affect the cache checksum
+  - find $HOME/.sbt -name "*.lock" -exec rm \{\} \;
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -exec rm \{\} \;
+
+# These directories are cached to S3 at the end of the build
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
+    - $HOME/.sbt/launchers/
+    - $HOME/.sbt/0.13/dependency/module/static
+
