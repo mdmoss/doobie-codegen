@@ -254,6 +254,17 @@ class Analysis(val model: DbModel, val target: Target) {
     CreateMany(process, list)
   }
 
+  def createShape(table: Table): Create = {
+    val shape = rowShape(table)
+    val rowType = rowNewType(table)
+
+    val body =
+      s"""createMany(shape :: Nil).map(_.head)""".stripMargin
+
+    val fn = FunctionDef(None, "create", FunctionParam("shape", shape._2, None) :: Nil, s"ConnectionIO[${rowType._2.symbol}]", body)
+    Create(fn)
+  }
+
   def get(table: Table): Option[Get] = pkNewType(table).map { pk =>
 
     val rowType = rowNewType(table)

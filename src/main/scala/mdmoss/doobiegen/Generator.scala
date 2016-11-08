@@ -61,6 +61,8 @@ class Generator(analysis: Analysis) {
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).list))}
             |
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn))}
+            |
             |  ${a.get(t).map { g =>
                   checkTarget(StatementTypes.Get, ppFunctionDef(g.inner) + "\n" + ppFunctionDef(g.outer))
                 }.getOrElse("")}
