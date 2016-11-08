@@ -225,7 +225,13 @@ s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
 
   def genShapeType(table: Table): String = {
     val shape = a.rowShape(table)
-    s"case class ${shape._2.symbol}(${shape._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}" + f.defaultValue.map(d => s" = $d").getOrElse("")).mkString(", ")})"
+    s"""
+       |case class ${shape._2.symbol}(${shape._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}" + f.defaultValue.map(d => s" = $d").getOrElse("")).mkString(", ")})
+       |
+       |object ${shape._2.symbol} {
+       |  def NoDefaults(${shape._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(", ")}): ${shape._2.symbol} = ${shape._2.symbol}(${shape._1.map(_.scalaName).mkString(", ")})
+       |}
+     """.stripMargin
   }
 
   def genInsert(table: Table): String = {
