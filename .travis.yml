@@ -23,7 +23,7 @@ before_script:
   - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
   - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
   - sudo service postgresql restart
-  - sudo -u postres ./sql/make-test.sh
+  - sudo -u postgres ./sql/make-test.sh
 
 script:
   - sbt ++$TRAVIS_SCALA_VERSION run out/test
