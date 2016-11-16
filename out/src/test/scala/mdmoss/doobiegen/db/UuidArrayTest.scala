@@ -31,7 +31,7 @@ object UuidArrayTest extends Specification with AnalysisSpec {
       val uuids = UUID.randomUUID() :: UUID.randomUUID() :: UUID.randomUUID() :: Nil
 
       val work = for {
-        uuidRows <- TestUuidMultiget.createMany(uuids.map(TestUuidMultiget.Shape))
+        uuidRows <- TestUuidMultiget.createMany(uuids.map(TestUuidMultiget.Shape(_)))
         result   <- TestUuidMultiget.multiget(uuidRows.map(_.uuid))
       } yield result
 
