@@ -186,3 +186,15 @@ CREATE TABLE test_nullible_fk_default(
   id BIGSERIAL PRIMARY KEY,
   fk BIGINT REFERENCES test_gen_options(id)
 );
+
+CREATE TABLE test_double_fk_1(
+  id BIGSERIAL PRIMARY KEY
+);
+
+CREATE TABLE test_double_fk_2(
+  id BIGINT PRIMARY KEY REFERENCES test_double_fk_1(id)
+);
+
+CREATE TABLE test_double_fk_3(
+  id BIGINT PRIMARY KEY REFERENCES test_double_fk_2(id)
+);
