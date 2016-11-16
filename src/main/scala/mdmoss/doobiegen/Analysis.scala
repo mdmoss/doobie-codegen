@@ -366,6 +366,19 @@ class Analysis(val model: DbModel, val target: Target) {
     Count(inner, outer)
   }
 
+  private def unwrapsNeeded(field: RowRepField): Int = {
+    field.source.head.references match {
+      case None => 1
+      case Some(ref) =>
+        val lower = model.tables.find(_.ref == ref.table).get
+        val lowerField = rowNewType(lower)._1.find(_.source.head.sqlName == ref.column)
+        lowerField match {
+          case None => 2
+          case Some(f) => 1 + unwrapsNeeded(f)
+        }
+    }
+  }
+
   def baseMultiget(table: Table): Option[BaseMultiget] = {
     val rowType = rowNewType(table)
 
@@ -384,10 +397,9 @@ class Analysis(val model: DbModel, val target: Target) {
     val joins = (pkNewType(table).map { pk =>
       val arrayName = pk._1.head.source.head.scalaName
 
-      val matchArray = pk._1.head.source.head.reference match {
-        case Some(ref) => s"$${{${arrayName}}.toSeq.flatten.map(_.value.value).toArray}"
-        case None      => s"$${{${arrayName}}.toSeq.flatten.map(_.value).toArray}"
-      }
+      val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
+      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
+
       val columnType = pk._1.head.source.head.sqlType.underlyingType
 
       s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
@@ -405,10 +417,8 @@ class Analysis(val model: DbModel, val target: Target) {
     val where = "WHERE " + (pkNewType(table).map { pk =>
       val arrayName = pk._1.head.source.head.scalaName
 
-      val matchArray = pk._1.head.source.head.reference match {
-        case Some(ref) => s"$${{${arrayName}}.toSeq.flatten.map(_.value.value).toArray}"
-        case None => s"$${{${arrayName}}.toSeq.flatten.map(_.value).toArray}"
-      }
+      val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
+      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
 
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
     }.toList ++ table.columns.zipWithIndex.flatMap {
