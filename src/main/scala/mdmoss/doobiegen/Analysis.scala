@@ -405,7 +405,10 @@ class Analysis(val model: DbModel, val target: Target) {
       s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
     }.toList ++ table.columns.zipWithIndex.flatMap {
         case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
-          val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.value).toArray}"
+
+          val rowRep = rowType._1.find(_.source.head == c).get
+          val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
+          val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
 
             Seq(
               s"LEFT JOIN unnest(${matchArray}::${c.sqlType.underlyingType}[]) WITH ORDINALITY t$i(val, ord) ON t$i.val = ${c.sqlNameInTable(table)}"
@@ -423,7 +426,9 @@ class Analysis(val model: DbModel, val target: Target) {
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
     }.toList ++ table.columns.zipWithIndex.flatMap {
       case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
-        val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.value).toArray}"
+        val rowRep = rowType._1.find(_.source.head == c).get
+        val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
+        val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
 
         Seq(
           s"($${${c.scalaName}.isEmpty} OR ${c.sqlNameInTable(table)} = ANY($matchArray))"
