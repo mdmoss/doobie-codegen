@@ -23,7 +23,7 @@ before_script:
   - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
   - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
   - sudo service postgresql restart
-  - sudo -u postgres psql "CREATE USER test; ALTER USER test WITH PASSWORD 'test'; ALTER USER test WITH SUPERUSER"
+  - sudo -u postgres psql -c "CREATE USER test; ALTER USER test WITH PASSWORD 'test'; ALTER USER test WITH SUPERUSER"
   - sudo -u postgres ./sql/make-test.sh
 
 script:
