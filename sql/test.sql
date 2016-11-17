@@ -192,9 +192,11 @@ CREATE TABLE test_double_fk_1(
 );
 
 CREATE TABLE test_double_fk_2(
-  id BIGINT PRIMARY KEY REFERENCES test_double_fk_1(id)
+  id BIGINT PRIMARY KEY REFERENCES test_double_fk_1(id),
+  notpk BIGINT REFERENCES test_double_fk_1(id)
 );
 
 CREATE TABLE test_double_fk_3(
-  id BIGINT PRIMARY KEY REFERENCES test_double_fk_2(id)
+  id BIGINT PRIMARY KEY REFERENCES test_double_fk_2(id),
+  notpk BIGINT NOT NULL REFERENCES test_double_fk_2(id)
 );
