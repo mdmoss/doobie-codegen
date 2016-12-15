@@ -36,6 +36,16 @@ object DbModel {
         case false => t
       }})
 
+    case AlterTable(table, ColumnType(column, typ)) => model.copy(tables = model.tables.map { t =>
+      t.ref.schema == table.schema && t.ref.sqlName == table.sqlName match {
+        case true => t.copy(properties = t.properties.map {
+          case c@Column(name, _, _) if name == column => c.copy(sqlType=typ)
+          case c => c
+        })
+        case false => t
+      }
+    })
+
     case DropTable(table) => model.copy(tables = model.tables.filter(_.ref != table))
 
     /* Statements here have no effect on the model, at present */

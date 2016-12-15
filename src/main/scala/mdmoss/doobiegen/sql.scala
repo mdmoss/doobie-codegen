@@ -58,6 +58,7 @@ object sql {
   case class AddProperty(tableProperty: TableProperty) extends AlterTableAction
   case class DropColumn(column: String) extends AlterTableAction
   case class DropColumnProperty(column: String, property: sql.ColumnProperty) extends AlterTableAction
+  case class ColumnType(column: String, typ: Type) extends AlterTableAction
 
   case object Ignored extends Statement
 

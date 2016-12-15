@@ -119,6 +119,8 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
     | "ALTER TABLE " ~ TableRef ~ "DROP COLUMN " ~ ValidIdentifier ~ ";" ~> ((t: TableRef, column: String) => sql.AlterTable(t, DropColumn(column)))
     | "ALTER TABLE " ~ TableRef ~ "ALTER COLUMN " ~ ValidIdentifier ~ "DROP " ~ ColumnProperty ~ ";" ~>
         ((table: TableRef, column: String, property: ColumnProperty) => sql.AlterTable(table, DropColumnProperty(column, property)))
+    | "ALTER TABLE " ~ TableRef ~ "ALTER COLUMN " ~ ValidIdentifier ~ "TYPE " ~ Type ~ ";" ~>
+        ((table: TableRef, column: String, typ: Type) => sql.AlterTable(table, ColumnType(column, typ)))
   )
 
   def Insert: Rule1[sql.Statement] = rule {
