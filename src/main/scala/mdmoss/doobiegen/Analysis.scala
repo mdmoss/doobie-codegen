@@ -615,7 +615,10 @@ class Analysis(val model: DbModel, val target: Target) {
             case sql.DoublePrecision => ScalaType("Double", "0.0", None)
             case sql.Integer         => ScalaType("Int", "0", None)
             case sql.Text            => ScalaType("String", "\"\"", None)
-            case sql.Timestamp       => ScalaType("Timestamp", "new Timestamp(0L)", None)
+            case sql.TimestampTZ     => ScalaType("Timestamp", "new Timestamp(0L)", None)
+            case sql.Timestamp       => ScalaType("LocalDateTime",
+                                                  "new LocalDateTime(new LocalDate(1, 1, 1), new LocalTime(1,1,1))",
+                                                  None)
             case sql.JsonB           => ScalaType("Json", "jEmptyObject", Some("argonaut"))
             case sql.Json            => ScalaType("Json", "jEmptyObject", Some("argonaut"))
             case sql.Geometry        => ScalaType("PGgeometry", "new PGgeometry()", None)

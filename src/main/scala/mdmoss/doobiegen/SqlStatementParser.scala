@@ -69,7 +69,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
         | ignoreCase("integer") ~                  push(sql.Integer)
         | ignoreCase("int") ~                      push(sql.Integer)
         | ignoreCase("text") ~                     push(sql.Text)
-        | ignoreCase("timestamp with time zone") ~ push(sql.Timestamp)
+        | ignoreCase("timestamp with time zone") ~ push(sql.TimestampTZ)
         | ignoreCase("timestamp") ~                push(sql.Timestamp)
         | ignoreCase("time") ~                     push(sql.Time)
         | ignoreCase("jsonb") ~                    push(sql.JsonB)
@@ -119,6 +119,8 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
     | "ALTER TABLE " ~ TableRef ~ "DROP COLUMN " ~ ValidIdentifier ~ ";" ~> ((t: TableRef, column: String) => sql.AlterTable(t, DropColumn(column)))
     | "ALTER TABLE " ~ TableRef ~ "ALTER COLUMN " ~ ValidIdentifier ~ "DROP " ~ ColumnProperty ~ ";" ~>
         ((table: TableRef, column: String, property: ColumnProperty) => sql.AlterTable(table, DropColumnProperty(column, property)))
+    | "ALTER TABLE " ~ TableRef ~ "ALTER COLUMN " ~ ValidIdentifier ~ "TYPE " ~ Type ~ ";" ~>
+        ((table: TableRef, column: String, typ: Type) => sql.AlterTable(table, ColumnType(column, typ)))
   )
 
   def Insert: Rule1[sql.Statement] = rule {
