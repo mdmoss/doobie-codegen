@@ -1,6 +1,6 @@
 package mdmoss.doobiegen
 
-import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, NoWrite}
+import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, NoWrite, IgnoreDefault}
 import mdmoss.doobiegen.Runner.Target
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
@@ -97,7 +97,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def isNoInsert(table: Table, column: Column): Boolean = {
     val options = columnOptions(table, column)
-    options.contains(AlwaysInsertDefault) || isNoWrite(table, column)
+    (options.contains(AlwaysInsertDefault) || isNoWrite(table, column)) && !options.contains(IgnoreDefault)
   }
 
   def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
@@ -160,18 +160,25 @@ class Analysis(val model: DbModel, val target: Target) {
   }
 
   def getParam(r: RowRepField): FunctionParam = {
+    val options = columnOptions(r.sourceTable, r.source.head)
     r.source.head.references match {
       case Some(sql.References(fTable, fCol)) =>
         val p = paramType(fTable, getColumn(fTable, fCol)).copy(name = r.scalaName)
-        r.source.head.isNullible match {
-          case true => p.copy(`type` = p.`type`.copy(symbol = s"Option[${p.`type`.qualifiedSymbol}]", "None", None), default = Some("None"))
-          case false => p
+        if (r.source.head.isNullible) {
+          val default = if (options.contains(IgnoreDefault)) None else Some("None")
+          p.copy(
+            `type` = p.`type`.copy(symbol = s"Option[${p.`type`.qualifiedSymbol}]", "None", None),
+            default = default
+          )
+        } else {
+          p
         }
       case None =>
         /* In this case, we want to use unwrapped types, not the primary key - so we go back to the original rep */
         val rep = r.source.headOption.map(_.scalaRep(r.sourceTable)).getOrElse(r)
-        val defaultIsNull = r.source.headOption.exists(_.isNullible)
-        FunctionParam(rep.scalaName, rep.scalaType, default = r.defaultValue)
+
+        val default = if (options.contains(IgnoreDefault)) None else r.defaultValue
+        FunctionParam(rep.scalaName, rep.scalaType, default = default)
     }
   }
 

@@ -200,3 +200,5 @@ CREATE TABLE test_double_fk_3(
   id BIGINT PRIMARY KEY REFERENCES test_double_fk_2(id),
   notpk BIGINT NOT NULL REFERENCES test_double_fk_2(id)
 );
+
+ALTER TABLE test_gen_options ADD COLUMN test_ignore_default BIGINT;

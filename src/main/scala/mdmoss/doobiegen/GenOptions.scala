@@ -6,4 +6,5 @@ object GenOptions {
 
   case object NoWrite             extends GenOption
   case object AlwaysInsertDefault extends GenOption
+  case object IgnoreDefault       extends GenOption
 }

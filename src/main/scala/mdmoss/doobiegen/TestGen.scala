@@ -20,7 +20,8 @@ object TestGen {
       "test_gen_options" -> Map(
         "created_at" -> (NoWrite :: Nil),
         "thing_with_default" -> (AlwaysInsertDefault :: Nil),
-        "nullible_thing_with_default" -> (AlwaysInsertDefault :: Nil)
+        "nullible_thing_with_default" -> (AlwaysInsertDefault :: Nil),
+        "test_ignore_default" -> (IgnoreDefault :: Nil)
       )
     )
   )
