@@ -3,6 +3,7 @@ package mdmoss.doobiegen
 import mdmoss.doobiegen.output.File
 import mdmoss.doobiegen.sql.Table
 import Analysis._
+import mdmoss.doobiegen.Runner.{InsertString, TestDatabase}
 import mdmoss.doobiegen.StatementTypes.Statement
 
 class Generator(analysis: Analysis) {
@@ -125,7 +126,13 @@ class Generator(analysis: Analysis) {
             |
             |object ${a.targetObject(t)}Spec extends Specification with AnalysisSpec {
             |
-            |  val transactor = DriverManagerTransactor[Task]("${tr.driver}", "${tr.url}", "${tr.username}", "${tr.password}")
+            |  ${
+                  tr match {
+                    case TestDatabase(driver, url, username, password) =>
+                      s"""val transactor = DriverManagerTransactor[Task]("$driver", "$url", "$username", "$password")"""
+                    case InsertString(str) => str
+                  }
+                }
             |
             |  ${checkTarget(StatementTypes.Create, checkTest(t, a.insert(t).fn))}
             |

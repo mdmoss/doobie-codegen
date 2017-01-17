@@ -13,10 +13,13 @@ import scala.util.{Failure, Success, Try}
 
 object Runner {
 
-  case class TestDatabase(driver: String, url: String, username: String, password: String)
+  sealed trait TestDBSource
+  case class TestDatabase(driver: String, url: String, username: String, password: String) extends TestDBSource
+  case class InsertString(source: String) extends TestDBSource
+
   case class Target(
     schemaDir: String,
-    testDb: TestDatabase,
+    testDb: TestDBSource,
     src: String,
     `package`: String,
     statements: Option[Map[String, List[Statement]]],
