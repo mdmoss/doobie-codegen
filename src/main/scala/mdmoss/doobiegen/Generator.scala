@@ -44,14 +44,19 @@ class Generator(analysis: Analysis) {
             |
             |${genImports(t)}
             |
-            |object ${a.targetObject(t)} {
-            |  ${genMisc(t)}
+            |object ${a.targetObject(t)} extends ${a.targetObject(t)} {
             |
             |  ${genPkNewType(t)}
             |
             |  ${genRowType(t)}
             |
             |  ${genShapeType(t)}
+            |}
+            |
+            |trait ${a.targetObject(t)} {
+            |  import ${a.targetObject(t)}._
+            |
+            |  ${genMisc(t)}
             |
             |  ${checkTarget(StatementTypes.Create, ppFunctionDef(a.insert(t).fn))}
             |
@@ -160,7 +165,45 @@ class Generator(analysis: Analysis) {
       )
     }
 
-    tableFiles ++ testFiles
+    val schemas = db.tables.map(_.ref.schema).distinct
+    println(s"SCHEMAS: $schemas")
+
+    val packageObjects = schemas.map { schema =>
+
+      val tables = db.tables.filter(_.ref.schema == schema)
+
+      val tableObjects = tables.map { t =>
+        s"val ${a.targetObject(t)}: ${a.targetPackage(t)}.${a.targetObject(t)} = ${a.targetPackage(t)}.${a.targetObject(t)}"
+      }
+
+      /** There's a special case later for schema == NONE, to handle vals for other schemas. */
+      def childSchemas = schemas.flatten.map { s =>
+        s"val $s: ${target.`package`}.$s.gen.Gen = ${target.`package`}.$s.gen.Gen"
+      }.mkString("\n")
+
+      val contents =
+        s"""package ${a.targetPackage(tables.head).dropRight(".gen".length)}
+           |
+           |package object gen {
+           |
+           |  object Gen extends Gen
+           |
+           |  trait Gen {
+           |    ${if (schema.isEmpty) childSchemas else ""}
+           |    ${tableObjects.mkString("\n")}
+           |  }
+           |}
+         """.stripMargin
+
+      File(
+        a.targetPackage(tables.head),
+        "package.scala",
+        contents,
+        false
+      )
+    }
+
+    tableFiles ++ testFiles ++ packageObjects
   }
 
   def getTypes(table: Table): Set[sql.Type] = {
