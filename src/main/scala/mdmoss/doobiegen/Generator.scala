@@ -236,24 +236,25 @@ class Generator(analysis: Analysis) {
       .mkString("\n")
   }
 
+  def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
+  doobie.imports.Meta.other[PGobject]("$jsonType").nxmap[Json](
+    a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
+    a => {
+      val p = new PGobject
+      p.setType("$jsonType")
+      p.setValue(a.nospaces)
+      p
+    }
+  )"""
+
   def genMisc(table: Table): String = {
     val types = getTypes(table)
 
     val jsonMeta = if (types.contains(sql.JsonB)) {
-s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
-  doobie.imports.Meta.other[PGobject]("jsonb").nxmap[Json](
-    a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
-    a => new PGobject <| (_.setType("jsonb")) <| (_.setValue(a.nospaces))
-  )"""
+      jsonMetaImpl("jsonb")
     } else if (types.contains(sql.Json)) {
-s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
-  doobie.imports.Meta.other[PGobject]("json").nxmap[Json](
-    a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
-    a => new PGobject <| (_.setType("json")) <| (_.setValue(a.nospaces))
-  )"""
-    } else {
-      ""
-    }
+      jsonMetaImpl("json")
+    } else ""
 
     val uuidArrayMeta = if (types.contains(sql.Uuid)) {
       """implicit val UuidArrayMeta: doobie.imports.Meta[Array[UUID]] = doobie.imports.Meta.array("uuid", "_uuid")"""
