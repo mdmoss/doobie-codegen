@@ -230,8 +230,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val body =
       s"""
-        |  insert(${in.fn.params.map(f => f.name).mkString(", ")})
-        |    .withUniqueGeneratedKeys[${rowType._2.symbol}](${rowType._1.flatMap(_.source.map(s => "\"" + s.sqlName.toLowerCase() + "\"")).mkString(", ")})
+        |  create(Shape(${in.fn.params.map(f => f.name).mkString(", ")}))
      """.stripMargin
 
     val fn = FunctionDef(None, "create", in.fn.params, s"ConnectionIO[${rowType._2.symbol}]", body)

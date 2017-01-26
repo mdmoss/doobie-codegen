@@ -8,11 +8,12 @@ object StatementTypes {
   object MultiGet extends Statement
   object Find     extends Statement
 
-  object Create     extends Statement
   object CreateMany extends Statement
 
   object Update extends Statement
 
   object All   extends Statement
   object Count extends Statement
+
+  val Create = CreateMany
 }

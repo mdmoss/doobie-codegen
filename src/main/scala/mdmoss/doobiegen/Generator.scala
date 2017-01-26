@@ -58,9 +58,7 @@ class Generator(analysis: Analysis) {
             |
             |  ${genMisc(t)}
             |
-            |  ${checkTarget(StatementTypes.Create, ppFunctionDef(a.insert(t).fn))}
-            |
-            |  ${checkTarget(StatementTypes.Create, ppFunctionDef(a.create(t).fn))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.create(t).fn))}
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.insertMany(t).fn))}
             |
@@ -138,8 +136,6 @@ class Generator(analysis: Analysis) {
                     case InsertString(str) => str
                   }
                 }
-            |
-            |  ${checkTarget(StatementTypes.Create, checkTest(t, a.insert(t).fn))}
             |
             |  ${checkTarget(StatementTypes.CreateMany, checkTest(t, a.insertMany(t).fn))}
             |
