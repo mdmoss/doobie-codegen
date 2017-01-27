@@ -259,14 +259,14 @@ class Generator(analysis: Analysis) {
 
     val localDateTimeMeta = if (types.contains(sql.Timestamp)) {
       """implicit val LocalDateTimeMeta: doobie.imports.Meta[LocalDateTime] =
-      doobie.imports.Meta[Timestamp].nxmap(_.toLocalDateTime, Timestamp.valueOf(_))"""
+      doobie.imports.Meta[Timestamp].nxmap(_.toLocalDateTime, Timestamp.valueOf)"""
     } else {
       ""
     }
 
     val localDateMeta = if (types.contains(sql.Date)) {
       """implicit val LocalDateMeta: doobie.imports.Meta[LocalDate] =
-      doobie.imports.Meta[Date].nxmap(_.toLocalDate, Date.valueOf(_))"""
+      doobie.imports.Meta[Date].nxmap(_.toLocalDate, Date.valueOf)"""
     } else {
       ""
     }
