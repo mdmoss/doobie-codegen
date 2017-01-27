@@ -65,6 +65,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
       ignoreCase("bigint") ~                       push(sql.BigInt)
         | ignoreCase("bigserial") ~                push(sql.BigSerial)
         | ignoreCase("boolean") ~                  push(sql.Boolean)
+        | ignoreCase("date") ~                     push(sql.Date)
         | ignoreCase("double precision") ~         push(sql.DoublePrecision)
         | ignoreCase("integer") ~                  push(sql.Integer)
         | ignoreCase("int") ~                      push(sql.Integer)

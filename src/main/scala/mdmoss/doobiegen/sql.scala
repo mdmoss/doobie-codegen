@@ -6,6 +6,7 @@ object sql {
   case object BigInt          extends Type("bigint")
   case object BigSerial       extends Type("bigint")
   case object Boolean         extends Type("boolean")
+  case object Date            extends Type("date")
   case object DoublePrecision extends Type("double precision")
   case object Integer         extends Type("int")
   case object Text            extends Type("text")

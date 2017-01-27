@@ -38,9 +38,9 @@ class Generator(analysis: Analysis) {
             |
             |/* Todo handle imports better */
             |import doobie.imports._
-            |import java.sql.{Timestamp, Time}
+            |import java.sql.{Date, Timestamp, Time}
             |import java.util.UUID
-            |import java.time.LocalDateTime
+            |import java.time.{LocalDate, LocalDateTime}
             |
             |${genImports(t)}
             |
@@ -117,9 +117,8 @@ class Generator(analysis: Analysis) {
             |
             |/* Todo handle imports better */
             |import doobie.imports._
-            |import java.sql.Timestamp
-            |import java.sql.{Timestamp, Time}
-            |import java.time.LocalDateTime
+            |import java.sql.{Date, Timestamp, Time}
+            |import java.time.{LocalDate, LocalDateTime}
             |import org.specs2.mutable.Specification
             |import scalaz.concurrent.Task
             |import doobie.contrib.specs2.analysisspec.AnalysisSpec
@@ -265,7 +264,14 @@ class Generator(analysis: Analysis) {
       ""
     }
 
-    jsonMeta + "\n\n" + uuidArrayMeta + "\n\n" + localDateTimeMeta
+    val localDateMeta = if (types.contains(sql.Date)) {
+      """implicit val LocalDateMeta: doobie.imports.Meta[LocalDate] =
+      doobie.imports.Meta[Date].nxmap(_.toLocalDate, Date.valueOf(_))"""
+    } else {
+      ""
+    }
+
+    s"$jsonMeta\n\n$uuidArrayMeta\n\n$localDateTimeMeta\n\n$localDateMeta"
   }
 
   def genPkNewType(table: Table): String = {
