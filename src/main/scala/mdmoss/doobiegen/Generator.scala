@@ -271,7 +271,12 @@ class Generator(analysis: Analysis) {
       ""
     }
 
-    s"$jsonMeta\n\n$uuidArrayMeta\n\n$localDateTimeMeta\n\n$localDateMeta"
+    List(
+      jsonMeta,
+      uuidArrayMeta,
+      localDateTimeMeta,
+      localDateMeta
+    ).mkString("\n\n")
   }
 
   def genPkNewType(table: Table): String = {
