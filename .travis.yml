@@ -9,7 +9,7 @@ env:
     - PGPORT=5432
 
 services:
-  - postgresql
+  - postgresql-9.5
 addons:
   apt:
     packages:
