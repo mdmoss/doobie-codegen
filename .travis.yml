@@ -9,12 +9,14 @@ env:
     - PGPORT=5432
 
 services:
-  - postgresql-9.5
+  - postgresql
 addons:
   apt:
     packages:
     - postgresql-9.5
     - postgresql-contrib-9.5
+    - postgresql-9.5-postgis-2.2
+    - postgresql-9.5-postgis-2.2-scripts
   postgresql: "9.5"
 jdk: oraclejdk8
 
@@ -22,9 +24,7 @@ before_script:
   - sudo sh -c 'echo "port = 5432" >> /etc/postgresql/9.5/main/postgresql.conf'
   - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
   - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
-  - sudo service postgresql stop
-  - sudo apt-get install -y postgresql-9.5-postgis-2.2 postgresql-9.5-postgis-2.2-scripts
-  - sudo service postgresql start
+  - sudo service postgresql restart
   - sudo -u postgres psql -c "create extension postgis"
   - sudo -u postgres psql -c "CREATE USER test; ALTER USER test WITH PASSWORD 'test'; ALTER USER test WITH SUPERUSER"
   - sudo -u postgres ./sql/make-test.sh
