@@ -10,6 +10,7 @@ CREATE TABLE test_types (
     timestamp_t  TIMESTAMP,
     timestampz_t TIMESTAMP WITH TIME ZONE,
     jsonb_t      JSONB,
+    date_t       DATE,
     time_t       TIME,
     short_t      SMALLINT,
     uuid_t       UUID
