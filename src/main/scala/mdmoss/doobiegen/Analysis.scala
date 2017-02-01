@@ -619,6 +619,7 @@ class Analysis(val model: DbModel, val target: Target) {
             case sql.BigSerial       => ScalaType("Long", "0L", None)
             case sql.Boolean         => ScalaType("Boolean", "true", None)
             case sql.DoublePrecision => ScalaType("Double", "0.0", None)
+            case sql.Date            => ScalaType("LocalDate", "LocalDate.of(1, 1, 1)", None)
             case sql.Integer         => ScalaType("Int", "0", None)
             case sql.Text            => ScalaType("String", "\"\"", None)
             case sql.TimestampTZ     => ScalaType("Timestamp", "new Timestamp(0L)", None)
