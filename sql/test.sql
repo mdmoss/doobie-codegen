@@ -203,3 +203,9 @@ CREATE TABLE test_double_fk_3(
 );
 
 ALTER TABLE test_gen_options ADD COLUMN test_ignore_default BIGINT;
+
+CREATE TABLE test_set_not_null(
+  some_num INTEGER
+);
+
+ALTER TABLE test_set_not_null ALTER COLUMN some_num SET NOT NULL;

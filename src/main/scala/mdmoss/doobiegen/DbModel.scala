@@ -27,6 +27,15 @@ object DbModel {
         case false => t
       }))
 
+    case AlterTable(table, SetColumnProperty(column, property)) => model.copy(tables = model.tables.map { t =>
+      t.ref.schema == table.schema && t.ref.sqlName == table.sqlName match {
+        case true => t.copy(properties = t.properties.map {
+          case c@Column(name, _, _) if name == column => c.copy(properties = Seq(property) ++ c.properties)
+          case p => p
+        })
+        case false => t
+      }})
+
     case AlterTable(table, DropColumnProperty(column, property)) => model.copy(tables = model.tables.map { t =>
       t.ref.schema == table.schema && t.ref.sqlName == table.sqlName match {
         case true => t.copy(properties = t.properties.map {
