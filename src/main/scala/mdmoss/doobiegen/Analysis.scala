@@ -103,7 +103,7 @@ class Analysis(val model: DbModel, val target: Target) {
   def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
   def isNoInsert(table: Table, rowRepField: RowRepField): Boolean = isNoInsert(table, rowRepField.source.head)
 
-  def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.primaryKeyColumns match {
+  def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.columns.filter(_.isPrimaryKey) match {
     case Nil      => None
     case c :: Nil =>
       val rep = c.scalaRep(table).copy(scalaName = "value")
@@ -392,7 +392,7 @@ class Analysis(val model: DbModel, val target: Target) {
       FunctionParam(pk._1.head.source.head.scalaName, app(app(pk._2, "Seq"), "Option"))
     }.toList ++
     table.columns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
         Seq(FunctionParam(c.scalaName, app(app(c.scalaType, "Seq"), "Option")))
 
       case _ => Seq()
@@ -410,7 +410,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
       s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
     }.toList ++ table.columns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
 
           val rowRep = rowType._1.find(_.source.head == c).get
           val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
@@ -431,7 +431,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
     }.toList ++ table.columns.zipWithIndex.flatMap {
-      case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+      case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
         val rowRep = rowType._1.find(_.source.head == c).get
         val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
         val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
@@ -445,7 +445,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val orderBy = "ORDER BY " + (pkNewType(table).map(_ => "t0.ord").toList ++
       table.columns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
           Seq(s"t$i.ord")
         case _ => Seq()
       }
@@ -475,7 +475,7 @@ class Analysis(val model: DbModel, val target: Target) {
     }
   }
 
-  def isInMultiget(t: Table, c: Column) = c.reference.isDefined && !c.isNullible && !t.primaryKeyColumns.contains(c)
+  def isInMultiget(t: Table, c: Column) = c.reference.isDefined && !c.isNullible && !c.isPrimaryKey
 
   def multigets(table: Table): Seq[MultiGet] = {
     val rowType = rowNewType(table)
@@ -514,7 +514,7 @@ class Analysis(val model: DbModel, val target: Target) {
           }
 
         } ++table.columns.filter(isInMultiget(table, _)).zipWithIndex.flatMap {
-          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
 
             val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
 
@@ -527,7 +527,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           case  _ => List()
         } ++ table.columns.filter(isInMultiget(table, _)).zipWithIndex.flatMap {
-          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !table.primaryKeyColumns.contains(c) =>
+          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
 
             val params = List(FunctionParam(c.scalaName, c.scalaType))
 

@@ -287,7 +287,18 @@ class Generator(analysis: Analysis) {
 
   def genRowType(table: Table): String = {
     val row = a.rowNewType(table)
-    s"case class ${row._2.symbol}(${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(", ")})"
+    val shape = a.rowShape(table)
+
+    val shapeFields = shape._1.map { field =>
+      if (field.source.head.isPrimaryKey) field.scalaName + ".value"
+      else field.scalaName
+    }
+
+    s"""
+       |case class ${row._2.symbol}(${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(", ")}) {
+       |  def toShape: ${shape._2.symbol} = ${shape._2.symbol}.NoDefaults(${shapeFields.mkString(", ")})
+       |}
+     """.stripMargin
   }
 
   def genShapeType(table: Table): String = {

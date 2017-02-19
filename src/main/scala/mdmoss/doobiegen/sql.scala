@@ -27,6 +27,7 @@ object sql {
       case r @ References(_, _) => Some(r)
       case _ => None
     }.headOption
+    def isPrimaryKey = properties.contains(PrimaryKey)
     def sqlNameInTable(table: Table) = s"${table.ref.fullName}.$sqlName"
   }
 
@@ -70,14 +71,8 @@ object sql {
       case _ => None
     }.toList
 
-    /* We're overloading this for now, because we only do special things with a single pk column */
-    def primaryKeyColumns = columns.filter(_.properties.contains(PrimaryKey))
-/*      ++ properties.flatMap {
-        case CompositePrimaryKey(names) => columns.filter(c => names.contains(c.sqlName))
-        case _ => Seq()
-      }.toList*/
-
-    def nonPrimaryKeyColumns = columns.filterNot(primaryKeyColumns.contains)
+    val primaryKeyColumns = columns.filter(_.isPrimaryKey)
+    val nonPrimaryKeyColumns = columns.filterNot(_.isPrimaryKey)
   }
 
   sealed trait ColumnProperty
