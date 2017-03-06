@@ -209,3 +209,8 @@ CREATE TABLE test_set_not_null(
 );
 
 ALTER TABLE test_set_not_null ALTER COLUMN some_num SET NOT NULL;
+
+CREATE TABLE required_json(
+  id BIGINT PRIMARY KEY,
+  j JSON NOT NULL
+);
