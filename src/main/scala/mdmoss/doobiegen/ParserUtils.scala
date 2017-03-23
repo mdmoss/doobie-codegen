@@ -16,7 +16,6 @@ object ParserUtils {
     def offSections = "(?s)-- doobie-codegen: off.*?-- doobie-codegen: on".r
 
     def removeOffSections: String = {
-      println(offSections.replaceAllIn(sql, ""))
       offSections.replaceAllIn(sql, "").trim
     }
   }

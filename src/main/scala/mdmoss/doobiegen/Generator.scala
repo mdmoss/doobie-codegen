@@ -161,7 +161,6 @@ class Generator(analysis: Analysis) {
     }
 
     val schemas = db.tables.map(_.ref.schema).distinct
-    println(s"SCHEMAS: $schemas")
 
     val packageObjects = schemas.map { schema =>
 

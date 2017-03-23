@@ -23,7 +23,8 @@ object Runner {
     src: String,
     `package`: String,
     statements: Option[Map[String, List[Statement]]],
-    columnOptions: Map[String, Map[String, List[GenOption]]]
+    columnOptions: Map[String, Map[String, List[GenOption]]],
+    quiet: Boolean = false
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
@@ -70,21 +71,40 @@ object Runner {
 
     val parsers = cleanedAndSplit.map(new SqlStatementParser(_))
 
-    parsers.foreach { s =>
-      println(Seperator)
-      println(s.input.sliceString(0, s.input.length))
-      s.StatementLine.run() match {
-        case r@Success(_) => println(r)
-        case r@Failure(f) => f match {
-          case e@ParseError(_, _, _) => println(s.formatError(e))
-            throw f
+    if (target.quiet) {
+      parsers.foreach { s =>
+        s.StatementLine.run() match {
+          case r@Success(_) => ()
+          case r@Failure(f) => f match {
+            case e@ParseError(_, _, _) =>
+              println(Seperator)
+              println(s.input.sliceString(0, s.input.length))
+              println(s.formatError(e))
+              throw f
+          }
+        }
+      }
+    } else {
+      parsers.foreach { s =>
+        println(Seperator)
+        println(s.input.sliceString(0, s.input.length))
+        s.StatementLine.run() match {
+          case r@Success(_) => println(r)
+          case r@Failure(f) => f match {
+            case e@ParseError(_, _, _) => println(s.formatError(e))
+              throw f
+          }
         }
       }
     }
 
+
+
     val statements = parsers.flatMap(_.StatementLine.run().toOption)
 
-    println(Seperator)
+    if (!target.quiet) {
+      println(Seperator)
+    }
 
     if (statements.length != parsers.length) throw new Throwable("Failed parsing. Exiting.")
 
