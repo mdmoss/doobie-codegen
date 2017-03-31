@@ -214,3 +214,8 @@ CREATE TABLE required_json(
   id BIGINT PRIMARY KEY,
   j JSON NOT NULL
 );
+
+CREATE TABLE test_column_ignore(
+  include_me BIGINT,
+  ignore_me TEXT
+);

@@ -3,7 +3,7 @@ package mdmoss.doobiegen
 import java.io.{File, PrintWriter}
 import java.nio.file.Paths
 
-import mdmoss.doobiegen.GenOptions.GenOption
+import mdmoss.doobiegen.GenOptions.{GenOption, Ignore}
 import mdmoss.doobiegen.StatementTypes.Statement
 import mdmoss.doobiegen.output.SourceWriter
 import org.parboiled2.ParseError
@@ -110,7 +110,9 @@ object Runner {
 
     val model = statements.foldLeft(DbModel.empty)(DbModel.update)
 
-    val analysis = new Analysis(model, target)
+    val filteredModel = FilterIgnoredFields(model, target)
+
+    val analysis = new Analysis(filteredModel, target)
 
     val generator = new Generator(analysis)
 

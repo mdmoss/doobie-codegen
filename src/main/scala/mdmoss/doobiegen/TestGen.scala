@@ -22,6 +22,9 @@ object TestGen {
         "thing_with_default" -> (AlwaysInsertDefault :: Nil),
         "nullible_thing_with_default" -> (AlwaysInsertDefault :: Nil),
         "test_ignore_default" -> (IgnoreDefault :: Nil)
+      ),
+      "test_column_ignore" -> Map(
+        "ignore_me" -> (Ignore :: Nil)
       )
     )
   )
