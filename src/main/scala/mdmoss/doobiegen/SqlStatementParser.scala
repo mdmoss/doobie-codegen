@@ -69,6 +69,8 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
         | ignoreCase("double precision") ~         push(sql.DoublePrecision)
         | ignoreCase("integer") ~                  push(sql.Integer)
         | ignoreCase("int") ~                      push(sql.Integer)
+        | ignoreCase("numeric") ~ Decimal ~>       { d => d }
+        | ignoreCase("decimal") ~ Decimal ~>       { d => d }
         | ignoreCase("text") ~                     push(sql.Text)
         | ignoreCase("timestamp with time zone") ~ push(sql.TimestampTZ)
         | ignoreCase("timestamp") ~                push(sql.Timestamp)
@@ -104,6 +106,12 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
     capture (
       (CharPredicate.Alpha ++ '_') ~ zeroOrMore(CharPredicate.Alpha ++ CharPredicate.Digit ++ '_' ++ '$')
     ) ~ OptionalWhitespace
+  }
+
+  def Decimal: Rule1[sql.Decimal] = rule {
+    OptionalWhitespace ~ "(" ~ OptionalWhitespace ~
+      capture(oneOrMore(CharPredicate.Digit)) ~ OptionalWhitespace ~ "," ~ OptionalWhitespace ~
+      capture(oneOrMore(CharPredicate.Digit)) ~ ")" ~> { (precision: String, scale: String) => sql.Decimal(precision.toLong, scale.toLong) }
   }
 
   def Whitespace = rule { oneOrMore(anyOf(" \n\t")) }

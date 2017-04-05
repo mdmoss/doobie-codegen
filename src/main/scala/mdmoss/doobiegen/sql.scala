@@ -18,6 +18,7 @@ object sql {
   case object Geometry        extends Type("geometry")
   case object SmallInt        extends Type("smallint")
   case object Uuid            extends Type("uuid")
+  case class  Decimal(precision: Long, scale: Long) extends Type("decimal")
 
   sealed trait TableProperty
 
