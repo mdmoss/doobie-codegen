@@ -13,7 +13,9 @@ CREATE TABLE test_types (
     date_t       DATE,
     time_t       TIME,
     short_t      SMALLINT,
-    uuid_t       UUID
+    uuid_t       UUID,
+    numeric_t    NUMERIC(2,1),
+    decimal_t    DECIMAL(2,1)
 );
 
 -- We've got to have a separate test because both JSON and JSONB use argonaut.Json on the other side and can't coexist.
