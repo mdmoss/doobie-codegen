@@ -5,7 +5,7 @@ import GenOptions._
 
 object TestGen {
 
-  val TestTarget = Target(
+  val target_v2_3 = Target(
     schemaDir = "sql/",
     TestDatabase(
       "org.postgresql.Driver",
@@ -13,7 +13,7 @@ object TestGen {
       "test",
       "test"
     ),
-    src = "out/src",
+    src = "out_v2_3/src",
     `package` = "mdmoss.doobiegen.db",
     statements = None,
     columnOptions = Map(
@@ -30,6 +30,6 @@ object TestGen {
   )
 
   def main(args: Array[String]) {
-    Runner.run(TestTarget)
+    Runner.run(target_v2_3)
   }
 }

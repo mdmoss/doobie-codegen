@@ -30,7 +30,7 @@ before_script:
   - sudo -u postgres ./sql/make-test.sh
 
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION run out/test
+  - sbt ++$TRAVIS_SCALA_VERSION testgen/run fullTest
 
 before_cache:
   # Clean up transient build files so they don't affect the cache checksum

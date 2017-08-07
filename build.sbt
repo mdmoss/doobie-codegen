@@ -1,10 +1,11 @@
 val commonSettings = Seq(
-  name := "doobiegen",
   organization := "mdmoss",
   scalaVersion := "2.11.7",
   scalacOptions ++= Seq("-deprecation", "-feature"),
   scalacOptions in Test ++= Seq("-Yrangepos")
 )
+
+/* General settings */
 
 lazy val main = (project in file(""))
   .settings(commonSettings:_*)
@@ -12,7 +13,15 @@ lazy val main = (project in file(""))
     libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
   )
 
-lazy val v2deps = Seq(
+/* Test generation settings */
+
+lazy val testgen = (project in file("testgen"))
+  .settings(commonSettings:_*)
+  .dependsOn(main)
+
+/* Version-specific tests - doobie v2.3 */
+
+lazy val deps_v2_3 = Seq(
   "io.argonaut"   %% "argonaut"                  % "6.1",
   "org.tpolecat"  %% "doobie-core"               % "0.2.3",
   "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.3",
@@ -20,14 +29,17 @@ lazy val v2deps = Seq(
   "org.scalaz"    %% "scalaz-core"               % "7.1.9"
 )
 
-lazy val v2settings = Seq(
+lazy val settings_v2_3 = Seq(
   resolvers += "tpolecat" at "http://dl.bintray.com/tpolecat/maven",
-  libraryDependencies ++= v2deps,
+  libraryDependencies ++= deps_v2_3,
   scalaVersion := "2.11.7"
 )
 
-lazy val out = (project in file("out"))
-  .settings(v2settings)
+lazy val out_v2_3 = (project in file("out_v2_3"))
+  .settings(settings_v2_3)
 
-lazy val test = (project in file("test"))
-  .settings(v2settings)
+lazy val test_v2_3 = (project in file("test_v2_3"))
+  .settings(settings_v2_3)
+  .dependsOn(out_v2_3)
+
+addCommandAlias("fullTest", ";out_v2_3/test;test_v2_3/test")
