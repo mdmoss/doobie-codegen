@@ -1,6 +1,40 @@
 # doobie-codegen
 
-Generates Doobie database code from sql statements.
+Generates Doobie database code from sql schema files.
+
+### Features
+
+- Generates Column types for primary keys, and Row types for all tables.
+- Generates Shape types for not-yet-inserted rows.
+- Can output for doobie version `0.2.3` or `0.2.4`.
+- Distinct types for data that is definitely in the database makes reasoning easy(er)!
+
+### Output
+
+##### All tables
+
+- `create: (Shape) => Row`
+- `create: (column, column, column...) => Row`
+- `createMany: (List[Shape]) => List[Row]`
+- `all(offset: Long, limit: Long) => List[Row]`
+- `count => List[Row]`
+
+##### Tables with a primary key
+
+- `get: (Id) => Row`
+- `find: (Long) => Option[Row]`
+
+n.b. `find` takes the type of the primary key column as a parameter.
+
+- `multiget: (Seq[Id]) => List[Row]`
+- `getByField: (field) => List[Row]`
+- `multigetByField: (Seq[field]) => List[Row]`
+
+n.b. `getByField` and `multigetByField` are generated for columns containing foreign keys.
+
+- `update: (Row) => Row`
+
+### Caveats
 
 Currently only targets PostgreSQL. Attempts to output straightforward code and tests.
 
