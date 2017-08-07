@@ -2,6 +2,8 @@
 
 Generates Doobie database code from sql schema files.
 
+[Here's some sample output](sample.scala). Please excuse the style :)
+
 ### Features
 
 - Generates Column types for primary keys, and Row types for all tables.
@@ -24,13 +26,16 @@ Generates Doobie database code from sql schema files.
 - `get: (Id) => Row`
 - `find: (Long) => Option[Row]`
 
-n.b. `find` takes the type of the primary key column as a parameter.
+`find` takes the type of the primary key column as a parameter.
 
 - `multiget: (Seq[Id]) => List[Row]`
+
+`multiget` and friends are stable! If you ask for B, C, and A, you'll get matching rows back in that order.
+
 - `getByField: (field) => List[Row]`
 - `multigetByField: (Seq[field]) => List[Row]`
 
-n.b. `getByField` and `multigetByField` are generated for columns containing foreign keys.
+`getByField` and `multigetByField` are generated for columns containing foreign keys.
 
 - `update: (Row) => Row`
 
