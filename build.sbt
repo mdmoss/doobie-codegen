@@ -28,7 +28,7 @@ lazy val deps_v2_3 = Seq(
   "org.tpolecat"  %% "doobie-core"               % "0.2.3",
   "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.3",
   "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.3" % "test",
-  "org.scalaz"    %% "scalaz-core"               % "7.1.9"
+  "org.scalaz"    %% "scalaz-core"               % "7.1.14"
 )
 
 lazy val settings_v2_3 = Seq(
@@ -51,7 +51,7 @@ lazy val deps_v2_4 = Seq(
   "org.tpolecat"  %% "doobie-core"               % "0.2.4",
   "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.4",
   "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.4" % "test",
-  "org.scalaz"    %% "scalaz-core"               % "7.1.9"
+  "org.scalaz"    %% "scalaz-core"               % "7.1.14"
 )
 
 lazy val settings_v2_4 = Seq(
