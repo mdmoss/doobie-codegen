@@ -1,6 +1,6 @@
 package mdmoss.doobiegen
 
-import mdmoss.doobiegen.Runner.{Target, TestDatabase}
+import mdmoss.doobiegen.Runner.{Target, TestDatabase, TargetVersion}
 import GenOptions._
 
 object TestGen {
@@ -29,7 +29,13 @@ object TestGen {
     )
   )
 
+  val target_v2_4 = target_v2_3.copy(
+    src = "out_v2_4/src",
+    targetVersion = TargetVersion.DoobieV024
+  )
+
   def main(args: Array[String]) {
     Runner.run(target_v2_3)
+    Runner.run(target_v2_4)
   }
 }

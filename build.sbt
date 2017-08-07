@@ -5,11 +5,15 @@ val commonSettings = Seq(
   scalacOptions in Test ++= Seq("-Yrangepos")
 )
 
+addCommandAlias("fullTest", ";out_v2_3/test;test_v2_3/test;out_v2_4/test;test_v2_4/test")
+
 /* General settings */
 
 lazy val main = (project in file(""))
   .settings(commonSettings:_*)
   .settings(
+    /* Don't attempt to compile the sample code. */
+    sourcesInBase := false,
     libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
   )
 
@@ -26,7 +30,7 @@ lazy val deps_v2_3 = Seq(
   "org.tpolecat"  %% "doobie-core"               % "0.2.3",
   "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.3",
   "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.3" % "test",
-  "org.scalaz"    %% "scalaz-core"               % "7.1.9"
+  "org.scalaz"    %% "scalaz-core"               % "7.1.14"
 )
 
 lazy val settings_v2_3 = Seq(
@@ -42,4 +46,27 @@ lazy val test_v2_3 = (project in file("test_v2_3"))
   .settings(settings_v2_3)
   .dependsOn(out_v2_3)
 
-addCommandAlias("fullTest", ";out_v2_3/test;test_v2_3/test")
+/* Version-specific tests - doobie v2.4 */
+
+lazy val deps_v2_4 = Seq(
+  "io.argonaut"   %% "argonaut"                  % "6.1",
+  "org.tpolecat"  %% "doobie-core"               % "0.2.4",
+  "org.tpolecat"  %% "doobie-contrib-postgresql" % "0.2.4",
+  "org.tpolecat"  %% "doobie-contrib-specs2"     % "0.2.4" % "test",
+  "org.scalaz"    %% "scalaz-core"               % "7.1.14"
+)
+
+lazy val settings_v2_4 = Seq(
+  resolvers += "tpolecat" at "http://dl.bintray.com/tpolecat/maven",
+  libraryDependencies ++= deps_v2_4,
+  scalaVersion := "2.11.7"
+)
+
+lazy val out_v2_4 = (project in file("out_v2_4"))
+  .settings(settings_v2_4)
+
+lazy val test_v2_4 = (project in file("test_v2_4"))
+  .settings(settings_v2_4)
+  .dependsOn(out_v2_4)
+
+
