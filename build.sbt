@@ -12,6 +12,8 @@ addCommandAlias("fullTest", ";out_v2_3/test;test_v2_3/test;out_v2_4/test;test_v2
 lazy val main = (project in file(""))
   .settings(commonSettings:_*)
   .settings(
+    /* Don't attempt to compile the sample code. */
+    sourcesInBase := false,
     libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
   )
 
