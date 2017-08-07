@@ -3,7 +3,7 @@ package mdmoss.doobiegen
 import mdmoss.doobiegen.output.File
 import mdmoss.doobiegen.sql.Table
 import Analysis._
-import mdmoss.doobiegen.Runner.{InsertString, TestDatabase}
+import mdmoss.doobiegen.Runner.{InsertString, TestDatabase, TargetVersion}
 import mdmoss.doobiegen.StatementTypes.Statement
 
 class Generator(analysis: Analysis) {
@@ -250,7 +250,7 @@ class Generator(analysis: Analysis) {
       jsonMetaImpl("json")
     } else ""
 
-    val uuidArrayMeta = if (types.contains(sql.Uuid)) {
+    val uuidArrayMeta = if (types.contains(sql.Uuid) && target.targetVersion == TargetVersion.DoobieV023) {
       """implicit val UuidArrayMeta: doobie.imports.Meta[Array[UUID]] = doobie.imports.Meta.array("uuid", "_uuid")"""
     } else {
       ""

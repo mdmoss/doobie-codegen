@@ -17,6 +17,13 @@ object Runner {
   case class TestDatabase(driver: String, url: String, username: String, password: String) extends TestDBSource
   case class InsertString(source: String) extends TestDBSource
 
+  sealed trait TargetVersion
+
+  object TargetVersion {
+    case object DoobieV023 extends TargetVersion
+    case object DoobieV024 extends TargetVersion
+  }
+
   case class Target(
     schemaDir: String,
     testDb: TestDBSource,
@@ -24,7 +31,8 @@ object Runner {
     `package`: String,
     statements: Option[Map[String, List[Statement]]],
     columnOptions: Map[String, Map[String, List[GenOption]]],
-    quiet: Boolean = false
+    quiet: Boolean = false,
+    targetVersion: TargetVersion = TargetVersion.DoobieV023
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
