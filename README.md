@@ -89,3 +89,10 @@ object Generator {
 ```
 
 Then run the project with sbt `gen/run`
+
+### Development
+
+- Generate test sources in sbt with `testgen/run`
+- Run tests for all versions with `fullTest`
+
+Tests require a local postgres instance on 5432 with a user called `test`, password `test`. See the `sql/make-test.sql` helper.
