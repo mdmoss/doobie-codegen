@@ -65,8 +65,8 @@ object Runner {
     val sql = {
       import scala.sys.process._
       val buffer = new ListBuffer[String]()
-      val proc = ("bash" :: "-c" :: s"cat ${target.schemaDir}*.sql" :: Nil).run(ProcessLogger(s => buffer.append(s)))
-      proc.exitValue()
+      val proc = ("bash" :: "-c" :: s"cat ${target.schemaDir}*.sql" :: Nil)
+      proc.run(ProcessLogger(s => buffer.append("\n" + s + "\n"))).exitValue()
       buffer.mkString("\n")
     }
 
