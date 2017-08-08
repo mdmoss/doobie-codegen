@@ -34,8 +34,14 @@ object TestGen {
     targetVersion = TargetVersion.DoobieV024
   )
 
+  val target_v3_0 = target_v2_3.copy(
+    src = "out_v3_0/src",
+    targetVersion = TargetVersion.DoobieV030
+  )
+
   def main(args: Array[String]) {
     Runner.run(target_v2_3)
     Runner.run(target_v2_4)
+    Runner.run(target_v3_0)
   }
 }
