@@ -5,6 +5,25 @@ val commonSettings = Seq(
   scalacOptions in Test ++= Seq("-Yrangepos")
 )
 
+/* Thanks https://tpolecat.github.io/2014/04/11/scalac-flags.html */
+val commonScalacOptions = Seq(
+  "-deprecation",           
+  "-encoding", "UTF-8",       // yes, this is 2 args
+  "-feature",                
+  "-language:existentials",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-unchecked",
+  "-Xfatal-warnings",       
+  "-Xlint",
+  "-Yno-adapted-args",       
+  "-Ywarn-dead-code",        // N.B. doesn't work well with the ??? hole
+  "-Ywarn-numeric-widen",   
+  "-Ywarn-value-discard",
+  "-Xfuture"
+  //"-Ywarn-unused-import"     // 2.11 only - also removed because it's too ambitious right now todo
+)
+
 val commonResolvers = Seq(
   "tpolecat" at "http://dl.bintray.com/tpolecat/maven",
   Resolver.sonatypeRepo("releases"),

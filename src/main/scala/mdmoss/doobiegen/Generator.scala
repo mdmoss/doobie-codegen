@@ -175,10 +175,13 @@ class Generator(analysis: Analysis) {
         s"val $s: ${target.`package`}.$s.gen.Gen = ${target.`package`}.$s.gen.Gen"
       }.mkString("\n")
 
+      val usePackageObjectVersions = TargetVersion.DoobieV023 :: TargetVersion.DoobieV024 :: Nil
+      val usePackageObject = usePackageObjectVersions.contains(target.targetVersion)
+
       val contents =
         s"""package ${a.targetPackage(tables.head).dropRight(".gen".length)}
            |
-           |package object gen {
+           |package ${if (usePackageObject) "object " else ""} gen {
            |
            |  object Gen extends Gen
            |
