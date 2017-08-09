@@ -221,3 +221,11 @@ CREATE TABLE test_column_ignore(
   include_me BIGINT,
   ignore_me TEXT
 );
+
+CREATE TABLE reference_change(
+  reference_column BIGINT NOT NULL REFERENCES test_double_fk_1(id)
+);
+
+ALTER TABLE reference_change DROP CONSTRAINT reference_change_reference_column_fkey;
+
+ALTER TABLE reference_change ADD FOREIGN KEY(reference_column) REFERENCES test_double_fk_2(id);

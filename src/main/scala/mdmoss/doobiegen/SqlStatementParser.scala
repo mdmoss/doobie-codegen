@@ -132,6 +132,11 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
         ((table: TableRef, column: String, property: ColumnProperty) => sql.AlterTable(table, SetColumnProperty(column, property)))
     | "ALTER TABLE " ~ TableRef ~ "ALTER COLUMN " ~ ValidIdentifier ~ "TYPE " ~ Type ~ ";" ~>
         ((table: TableRef, column: String, typ: Type) => sql.AlterTable(table, ColumnType(column, typ)))
+    | "ALTER TABLE " ~ TableRef ~ "DROP CONSTRAINT " ~ ValidIdentifier ~ ";" ~> ((table: TableRef, constraint: String) => sql.AlterTable(table, DropConstraint(constraint)))
+    | "ALTER TABLE " ~ TableRef ~ "ADD " ~ CompositeForeignKey ~ ";" ~> ((table: TableRef, fkey: CompositeForeignKey) => {
+        /* .heads are needed because the parser handles composite foreign keys, but not the generator */
+        sql.AlterTable(table, SetColumnProperty(fkey.localColumnNames.head, References(fkey.foreignTable, fkey.foreignColumnNames.head)))
+      })
   )
 
   def Insert: Rule1[sql.Statement] = rule {
