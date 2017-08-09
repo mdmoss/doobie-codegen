@@ -53,16 +53,13 @@ object sql {
   case class AlterTable(table: TableRef, action: AlterTableAction) extends Statement
   case class DropTable(table: TableRef) extends Statement
 
-
-
-
-
   sealed trait AlterTableAction
   case class AddProperty(tableProperty: TableProperty) extends AlterTableAction
   case class DropColumn(column: String) extends AlterTableAction
   case class SetColumnProperty(column: String, property: sql.ColumnProperty) extends AlterTableAction
   case class DropColumnProperty(column: String, property: sql.ColumnProperty) extends AlterTableAction
   case class ColumnType(column: String, typ: Type) extends AlterTableAction
+  case class DropConstraint(name: String) extends AlterTableAction
 
   case object Ignored extends Statement
 
