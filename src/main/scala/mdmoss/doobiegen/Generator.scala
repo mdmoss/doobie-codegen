@@ -3,8 +3,8 @@ package mdmoss.doobiegen
 import mdmoss.doobiegen.output.File
 import mdmoss.doobiegen.sql.Table
 import Analysis._
+import mdmoss.doobiegen.Runner.{InsertString, TestDatabase, TargetVersion}
 import mdmoss.doobiegen.Runner.TargetVersion.{DoobieV023, DoobieV024, DoobieV030}
-import mdmoss.doobiegen.Runner.{InsertString, TargetVersion, TestDatabase}
 import mdmoss.doobiegen.StatementTypes.Statement
 
 class Generator(analysis: Analysis) {

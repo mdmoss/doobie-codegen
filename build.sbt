@@ -33,7 +33,8 @@ val commonResolvers = Seq(
 addCommandAlias("fullTest", 
   ";out_v2_3/test;test_v2_3/test" + 
   ";out_v2_4/test;test_v2_4/test" + 
-  ";out_v3_0/test;test_v3_0/test" 
+  ";out_v3_0/test;test_v3_0/test" +
+  ";out_v4/test;test_v4/test" 
 )
 
 /* General settings */
