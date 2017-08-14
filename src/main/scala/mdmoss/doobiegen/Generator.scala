@@ -4,6 +4,7 @@ import mdmoss.doobiegen.output.File
 import mdmoss.doobiegen.sql.Table
 import Analysis._
 import mdmoss.doobiegen.Runner.{InsertString, TestDatabase, TargetVersion}
+import mdmoss.doobiegen.Runner.TargetVersion.{DoobieV023, DoobieV024, DoobieV030}
 import mdmoss.doobiegen.StatementTypes.Statement
 
 class Generator(analysis: Analysis) {
@@ -112,6 +113,8 @@ class Generator(analysis: Analysis) {
 
       def checkTarget(statement: Statement, out: String) = checkTargetStatements(t, statement, out)
 
+      val TestInTaskVersions = DoobieV030 :: DoobieV024 :: DoobieV023 :: Nil
+
       val contents =
         s"""package ${a.targetPackage(t)}
             |
@@ -121,7 +124,13 @@ class Generator(analysis: Analysis) {
             |import java.time.{LocalDate, LocalDateTime}
             |import org.specs2.mutable.Specification
             |import scalaz.concurrent.Task
-            |import doobie.contrib.specs2.analysisspec.AnalysisSpec
+            |
+            |${if (OldStyleContribImports.contains(target.targetVersion))
+                "import doobie.contrib.specs2.analysisspec.AnalysisSpec"
+               else
+                "import doobie.specs2.imports._"
+             }
+            |
             |import scalaz._, Scalaz._
             |import org.postgis._
             |import java.util.UUID
@@ -131,7 +140,12 @@ class Generator(analysis: Analysis) {
             |  ${
                   tr match {
                     case TestDatabase(driver, url, username, password) =>
-                      s"""val transactor = DriverManagerTransactor[Task]("$driver", "$url", "$username", "$password")"""
+                      if (TestInTaskVersions.contains(target.targetVersion)) {
+                        s"""val transactor = DriverManagerTransactor[Task]("$driver", "$url", "$username", "$password")"""
+                      } else {
+                        s"""val transactor = DriverManagerTransactor[IOLite]("$driver", "$url", "$username", "$password")"""
+                      }
+
                     case InsertString(str) => str
                   }
                 }
@@ -210,6 +224,8 @@ class Generator(analysis: Analysis) {
     }.toSet
   }
 
+  val OldStyleContribImports = DoobieV030 :: DoobieV024 :: DoobieV023 :: Nil
+
   def genImports(table: Table): String = {
     val types = getTypes(table)
 
@@ -218,17 +234,29 @@ class Generator(analysis: Analysis) {
       case false => Nil
     }
 
+
+
     List(
       ifElseEmpty(types.contains(sql.JsonB), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
       ifElseEmpty(types.contains(sql.Json), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
-      ifElseEmpty(types.contains(sql.Geometry), List("org.postgis._")),
+      ifElseEmpty(types.contains(sql.Geometry),
+        if (OldStyleContribImports.contains(target.targetVersion)) {
+          List("org.postgis._", "doobie.contrib.postgresql.pgtypes._")
+        } else {
+          List("org.postgis._", "doobie.postgres.pgistypes._")
+        }),
       ifElseEmpty(
         hasTargetStatements(table, StatementTypes.MultiGet) || getTypes(table).contains(sql.Uuid),
-        List("doobie.contrib.postgresql.pgtypes._")
+        if (OldStyleContribImports.contains(target.targetVersion)) {
+          List("doobie.contrib.postgresql.pgtypes._")
+        } else {
+          List("doobie.postgres.imports._")
+        }
       ),
       ifElseEmpty(hasTargetStatements(table, StatementTypes.CreateMany), List("scalaz._, Scalaz._"))
     )
       .flatten
+      .distinct
       .map("import " + _)
       .mkString("\n")
   }

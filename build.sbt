@@ -33,7 +33,8 @@ val commonResolvers = Seq(
 addCommandAlias("fullTest", 
   ";out_v2_3/test;test_v2_3/test" + 
   ";out_v2_4/test;test_v2_4/test" + 
-  ";out_v3_0/test;test_v3_0/test" 
+  ";out_v3_0/test;test_v3_0/test" +
+  ";out_v4/test;test_v4/test" 
 )
 
 /* General settings */
@@ -120,3 +121,27 @@ lazy val out_v3_0 = (project in file("out_v3_0"))
 lazy val test_v3_0 = (project in file("test_v3_0"))
   .settings(settings_v3_0)
   .dependsOn(out_v3_0)
+
+/* Version-specific tests - doobie v4 */
+
+lazy val deps_v4 = Seq(
+  "io.argonaut"   %% "argonaut-scalaz"   % "6.2",
+  "org.tpolecat"  %% "doobie-core"       % "0.4.2",
+  "org.tpolecat"  %% "doobie-postgres"   % "0.4.2",
+  "org.tpolecat"  %% "doobie-specs2"     % "0.4.2" % "test",
+  "org.scalaz"    %% "scalaz-concurrent" % "7.2.14",
+  "org.postgis"   %  "postgis-jdbc"      % "1.3.3"
+)
+
+lazy val settings_v4 = Seq(
+  resolvers ++= commonResolvers,
+  libraryDependencies ++= deps_v4,
+  scalaVersion := "2.12.3"
+)
+
+lazy val out_v4 = (project in file("out_v4"))
+  .settings(settings_v4)
+
+lazy val test_v4 = (project in file("test_v4"))
+  .settings(settings_v4)
+  .dependsOn(out_v4)
