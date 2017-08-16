@@ -1,4 +1,4 @@
-package mdmoss.doobiegen.db
+package mdmoss.doobiegen.queries
 
 import doobie.contrib.specs2.analysisspec.AnalysisSpec
 import doobie.imports._
