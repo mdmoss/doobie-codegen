@@ -263,7 +263,7 @@ class Generator(analysis: Analysis) {
 
   def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
   doobie.imports.Meta.other[PGobject]("$jsonType").nxmap[Json](
-    a => Parse.parse(a.getValue).leftMap[Json](sys.error).merge, // failure raises an exception
+    a => Parse.parse(a.getValue).fold(sys.error, identity), // failure raises an exception
     a => {
       val p = new PGobject
       p.setType("$jsonType")
