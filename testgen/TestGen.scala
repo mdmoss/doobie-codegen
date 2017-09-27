@@ -26,6 +26,9 @@ object TestGen {
       "test_column_ignore" -> Map(
         "ignore_me" -> (Ignore :: Nil)
       )
+    ),
+    tableSpecificStatements = Map(
+      "test_filtered_multiget" -> (StatementTypes.RefinedMultiget(excludeColumns = Some("column_b" :: Nil)) :: Nil)
     )
   )
 

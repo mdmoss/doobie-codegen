@@ -5,7 +5,6 @@ object StatementTypes {
   sealed trait Statement
 
   object Get      extends Statement
-  object MultiGet extends Statement
   object Find     extends Statement
 
   object CreateMany extends Statement
@@ -15,5 +14,8 @@ object StatementTypes {
   object All   extends Statement
   object Count extends Statement
 
-  val Create = CreateMany
+  case class RefinedMultiget(excludeColumns: Option[List[String]]) extends Statement
+
+  val Create: Statement = CreateMany
+  val MultiGet: Statement = RefinedMultiget(excludeColumns = None)
 }

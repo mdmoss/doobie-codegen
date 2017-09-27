@@ -90,6 +90,10 @@ class Analysis(val model: DbModel, val target: Target) {
     target.columnOptions.get(table.ref.fullName).flatMap(_.get(column.sqlName)).toList.flatten
   }
 
+  def statementOptions(table: Table): List[StatementTypes.Statement] = {
+    target.statements.flatMap(_.get(table.ref.fullName)).toList.flatten ++ target.tableSpecificStatements.getOrElse(table.ref.fullName, List.empty)
+  }
+
   def isNoWrite(table: Table, column: Column): Boolean = {
     val options = columnOptions(table, column)
     DefaultNoWriteSqlTypes.contains(column.sqlType) || options.contains(NoWrite)
@@ -388,10 +392,17 @@ class Analysis(val model: DbModel, val target: Target) {
   def baseMultiget(table: Table): Option[BaseMultiget] = {
     val rowType = rowNewType(table)
 
+    /* Hacky for now */
+    val excludedColumns: Set[String] = statementOptions(table).collect {
+      case rm: StatementTypes.RefinedMultiget => rm.excludeColumns.getOrElse(Nil)
+    }.flatten.toSet
+
+    val multigetColumns = table.columns.filterNot { c => excludedColumns.contains(c.sqlName) }
+
     val params = pkNewType(table).map { pk =>
       FunctionParam(pk._1.head.source.head.scalaName, app(app(pk._2, "Seq"), "Option"))
     }.toList ++
-    table.columns.flatMap {
+    multigetColumns.flatMap {
       case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
         Seq(FunctionParam(c.scalaName, app(app(c.scalaType, "Seq"), "Option")))
 
@@ -409,7 +420,7 @@ class Analysis(val model: DbModel, val target: Target) {
       val columnType = pk._1.head.source.head.sqlType.underlyingType
 
       s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
-    }.toList ++ table.columns.zipWithIndex.flatMap {
+    }.toList ++ multigetColumns.zipWithIndex.flatMap {
         case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
 
           val rowRep = rowType._1.find(_.source.head == c).get
@@ -430,7 +441,7 @@ class Analysis(val model: DbModel, val target: Target) {
       val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
 
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
-    }.toList ++ table.columns.zipWithIndex.flatMap {
+    }.toList ++ multigetColumns.zipWithIndex.flatMap {
       case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
         val rowRep = rowType._1.find(_.source.head == c).get
         val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
@@ -444,7 +455,7 @@ class Analysis(val model: DbModel, val target: Target) {
       ).mkString("\nAND ")
 
     val orderBy = "ORDER BY " + (pkNewType(table).map(_ => "t0.ord").toList ++
-      table.columns.zipWithIndex.flatMap {
+      multigetColumns.zipWithIndex.flatMap {
         case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
           Seq(s"t$i.ord")
         case _ => Seq()
@@ -475,7 +486,13 @@ class Analysis(val model: DbModel, val target: Target) {
     }
   }
 
-  def isInMultiget(t: Table, c: Column) = c.reference.isDefined && !c.isNullible && !c.isPrimaryKey
+  def isInMultiget(t: Table, c: Column) = {
+    /* Hacky for now */
+    val excludedColumns: Set[String] = statementOptions(t).collect {
+      case rm: StatementTypes.RefinedMultiget => rm.excludeColumns.getOrElse(Nil)
+    }.flatten.toSet
+    c.reference.isDefined && !c.isNullible && !c.isPrimaryKey && !excludedColumns.contains(c.sqlName)
+  }
 
   def multigets(table: Table): Seq[MultiGet] = {
     val rowType = rowNewType(table)

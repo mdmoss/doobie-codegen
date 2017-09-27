@@ -34,7 +34,9 @@ object Runner {
     statements: Option[Map[String, List[Statement]]],
     columnOptions: Map[String, Map[String, List[GenOption]]],
     quiet: Boolean = false,
-    targetVersion: TargetVersion = TargetVersion.DoobieV023
+    targetVersion: TargetVersion = TargetVersion.DoobieV023,
+    // This is mainly an override for testing
+    tableSpecificStatements: Map[String, List[Statement]]
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
@@ -46,7 +48,17 @@ object Runner {
       testDb: TestDatabase,
       src: String,
       `package`: String
-    ): Target = Target(schemaDir, testDb, src, `package`, None, Map())
+    ): Target = Target(
+      schemaDir = schemaDir,
+      testDb = testDb,
+      src = src,
+      `package` = `package`,
+      statements = None,
+      columnOptions = Map(),
+      quiet = false,
+      targetVersion = TargetVersion.DoobieV023,
+      tableSpecificStatements = Map.empty[String, List[Statement]]
+    )
   }
 
   val Default = Target(
