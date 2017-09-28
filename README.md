@@ -8,7 +8,7 @@ Generates Doobie database code from sql schema files.
 
 - Generates Column types for primary keys, and Row types for all tables.
 - Generates Shape types for not-yet-inserted rows.
-- Can output for doobie version `0.2.3` or `0.2.4`.
+- Can output for doobie version `0.2.3` or `0.2.4` or `0.3.0` or `0.4` or `0.4` but with scala either.
 - Distinct types for data that is definitely in the database makes reasoning easy(er)!
 
 ### Output
