@@ -11,7 +11,8 @@ object Code {
   )
 
   implicit class indentString(s: String) {
-    def indent(nSpaces: Int) = s.split("\n").map(p => " " * nSpaces + p).mkString("\n")
+    def indent(nSpaces: Int): String = s.replace("\n", "\n" + " " * nSpaces)
+    def chomp: String = s.replaceAll("^\\s*", "").replaceAll("\\s*$", "")
   }
 }
 
@@ -31,9 +32,9 @@ case class FunctionDef(privatePkg: Option[String], name: String, params: Seq[Fun
     val paramsString = params.map { _.renderAsParam }.mkString(", ")
 
     s"""${scope}def $name($paramsString): $returnType = {
-       |${body.indent(2)}
+       |${body.chomp.indent(2)}
        |}
-     """.stripMargin
+     """.stripMargin.chomp
   }
 }
 

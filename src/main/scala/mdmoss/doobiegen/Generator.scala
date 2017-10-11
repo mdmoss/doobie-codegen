@@ -27,6 +27,10 @@ class Generator(analysis: Analysis) {
     }
   }
 
+  implicit class StringOps(s: String) {
+    def indented(nSpaces: Int = 2): String = s.replace("\n", "\n" + " " * nSpaces)
+  }
+
   def gen: Seq[File] = {
     /* First aim - objects for each database table */
 
@@ -47,57 +51,57 @@ class Generator(analysis: Analysis) {
             |
             |object ${a.targetObject(t)} extends ${a.targetObject(t)} {
             |
-            |  ${genPkNewType(t)}
+            |  ${genPkNewType(t).indented()}
             |
-            |  ${genRowType(t)}
+            |  ${genRowType(t).indented()}
             |
-            |  ${genShapeType(t)}
+            |  ${genShapeType(t).indented()}
             |}
             |
             |trait ${a.targetObject(t)} {
             |  import ${a.targetObject(t)}._
             |
-            |  ${genMisc(t)}
+            |  ${genMisc(t).indented()}
             |
-            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.create(t).fn))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.create(t).fn)).indented()}
             |
-            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.insertMany(t).fn))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.insertMany(t).fn)).indented()}
             |
-            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).process))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).process)).indented()}
             |
-            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).list))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).list)).indented()}
             |
-            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn))}
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn)).indented()}
             |
             |  ${a.get(t).map { g =>
                   checkTarget(StatementTypes.Get, ppFunctionDef(g.inner) + "\n" + ppFunctionDef(g.outer))
-                }.getOrElse("")}
+                }.getOrElse("").indented()}
             |
             |  ${a.find(t).map { f =>
                   checkTarget(StatementTypes.Find, ppFunctionDef(f.inner) + "\n" + ppFunctionDef(f.outer))
-               }.getOrElse("")}
+               }.getOrElse("").indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).inner))}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).inner)).indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).outer))}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).outer)).indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.allUnbounded(t).fn))}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.allUnbounded(t).fn)).indented()}
             |
-            |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).inner))}
-            |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).outer))}
+            |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).inner)).indented()}
+            |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).outer)).indented()}
             |
             |  ${a.baseMultiget(t).map { f =>
                  checkTarget(StatementTypes.MultiGet, ppFunctionDef(f.fn))
-                }.getOrElse("")}
+                }.getOrElse("").indented()}
             |
-            |  ${a.multigets(t).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n") }
+            |  ${a.multigets(t).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n").indented()}
             |
             |  ${a.update(t).map { u =>
                  checkTarget(StatementTypes.Update, ppFunctionDef(u.inner) + "\n" + ppFunctionDef(u.outer))
-              }.getOrElse("")}
+              }.getOrElse("").indented()}
             |
             |}
-         """.stripMargin
+         """.stripMargin.replaceAll("\n( *\n)+", "\n\n")
 
 
       File(
@@ -325,7 +329,9 @@ class Generator(analysis: Analysis) {
     }
 
     s"""
-       |case class ${row._2.symbol}(${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(", ")}) {
+       |case class ${row._2.symbol}(
+       |  ${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(",\n  ")}
+       |) {
        |  def toShape: ${shape._2.symbol} = ${shape._2.symbol}.NoDefaults(${shapeFields.mkString(", ")})
        |}
      """.stripMargin
