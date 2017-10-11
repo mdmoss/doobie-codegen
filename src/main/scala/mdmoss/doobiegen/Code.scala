@@ -11,7 +11,7 @@ object Code {
   )
 
   implicit class indentString(s: String) {
-    def indent(nSpaces: Int): String = s.replace("\n", "\n" + " " * nSpaces)
+    def indent(nSpaces: Int): String = "  " + s.replace("\n", "\n" + (" " * nSpaces))
     def chomp: String = s.replaceAll("^\\s*", "").replaceAll("\\s*$", "")
   }
 }
