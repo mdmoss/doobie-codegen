@@ -102,7 +102,7 @@ class Generator(analysis: Analysis) {
               }.getOrElse("").indented()}
             |
             |}
-         """.stripMargin.compressRepeatedBlankLines
+            |""".stripMargin.compressRepeatedBlankLines
 
 
       File(
