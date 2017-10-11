@@ -29,6 +29,7 @@ class Generator(analysis: Analysis) {
 
   implicit class StringOps(s: String) {
     def indented(nSpaces: Int = 2): String = s.replace("\n", "\n" + " " * nSpaces)
+    def compressRepeatedBlankLines: String = s.replaceAll("\n( *\n)+", "\n\n")
   }
 
   def gen: Seq[File] = {
@@ -101,7 +102,7 @@ class Generator(analysis: Analysis) {
               }.getOrElse("").indented()}
             |
             |}
-         """.stripMargin.replaceAll("\n( *\n)+", "\n\n")
+         """.stripMargin.compressRepeatedBlankLines
 
 
       File(
