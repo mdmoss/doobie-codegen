@@ -47,6 +47,7 @@ class Generator(analysis: Analysis) {
             |import java.sql.{Date, Timestamp, Time}
             |import java.util.UUID
             |import java.time.{LocalDate, LocalDateTime}
+            |import scalaz._, Scalaz._
             |
             |${genImports(t)}
             |
@@ -257,8 +258,7 @@ class Generator(analysis: Analysis) {
         } else {
           List("doobie.postgres.imports._")
         }
-      ),
-      ifElseEmpty(hasTargetStatements(table, StatementTypes.CreateMany), List("scalaz._, Scalaz._"))
+      )
     )
       .flatten
       .distinct
