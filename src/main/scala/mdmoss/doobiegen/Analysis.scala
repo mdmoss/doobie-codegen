@@ -508,8 +508,9 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, pk._2)))
 
-          val baseParams = s"Some(${params.map(_.name).head})" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"multigetInnerBase(${baseParams.mkString(", ")}).list"
+          val listParamName = params.map(_.name).head
+          val baseParams = s"Some($listParamName)" :: List.fill(base.fn.params.length - 1)("None")
+          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
 
           List(
             MultiGet(FunctionDef(None, "multiget", params, returnType, body))
@@ -519,8 +520,9 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
 
-          val baseParams = s"Some(${params.map(_.name).head}.map(${pk._2.symbol}(_)))" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"multigetInnerBase(${baseParams.mkString(", ")}).list"
+          val listParamName = params.map(_.name).head
+          val baseParams = s"Some($listParamName.map(${pk._2.symbol}(_)))" :: List.fill(base.fn.params.length - 1)("None")
+          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
 
           if (table.primaryKeyColumns.head.references.isDefined) {
             List(
@@ -535,10 +537,11 @@ class Analysis(val model: DbModel, val target: Target) {
 
             val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
 
+            val listParamName = params.map(_.name).head
             val paramsBefore = i + numPkFields
             val paramsAfter = base.fn.params.length - (paramsBefore + 1)
-            val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(${params.map(_.name).head})") ++ List.fill(paramsAfter)("None")
-            val body = s"multigetInnerBase(${baseParams.mkString(", ")}).list"
+            val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(${listParamName})") ++ List.fill(paramsAfter)("None")
+            val body = s"if (${listParamName}.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
 
             List(MultiGet(FunctionDef(None, s"multigetBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 
