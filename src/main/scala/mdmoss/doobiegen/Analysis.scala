@@ -26,6 +26,8 @@ case class Count(inner: FunctionDef, outer: FunctionDef)
 
 case class BaseMultiget(fn: FunctionDef)
 
+case class BaseUnstableMultiget(fn: FunctionDef)
+
 case class MultiGet(inner: FunctionDef)
 
 case class Update(inner: FunctionDef, outer: FunctionDef)
@@ -563,6 +565,79 @@ class Analysis(val model: DbModel, val target: Target) {
 
     }
   }
+
+
+
+
+  def unstableMultiget(table: Table): Option[BaseUnstableMultiget] = {
+    val rowType = rowNewType(table)
+
+    /* Hacky for now */
+    val excludedColumns: Set[String] = statementOptions(table).collect {
+      case rm: StatementTypes.RefinedMultiget => rm.excludeColumns.getOrElse(Nil)
+    }.flatten.toSet
+
+    val multigetColumns = table.columns.filterNot { c => excludedColumns.contains(c.sqlName) }
+
+    val params = pkNewType(table).map { pk =>
+      FunctionParam(pk._1.head.source.head.scalaName, app(app(pk._2, "Seq"), "Option"))
+    }.toList ++
+      multigetColumns.flatMap {
+        case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+          Seq(FunctionParam(c.scalaName, app(app(c.scalaType, "Seq"), "Option")))
+
+        case _ => Seq()
+      }
+
+    val returnType = s"Query0[${rowType._2.symbol}]"
+
+    val where = "WHERE " + (pkNewType(table).map { pk =>
+      val arrayName = pk._1.head.source.head.scalaName
+
+      val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
+      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
+
+      s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
+    }.toList ++ multigetColumns.zipWithIndex.flatMap {
+      case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+        val rowRep = rowType._1.find(_.source.head == c).get
+        val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
+        val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
+
+        Seq(
+          s"($${${c.scalaName}.isEmpty} OR ${c.sqlNameInTable(table)} = ANY($matchArray))"
+        )
+      case _ => Seq()
+    }
+      ).mkString("\nAND ")
+
+    val body =
+      s"""sql\"\"\"
+         |  SELECT ${rowType._1.sqlColumnsInTable(table)}
+         |  FROM ${table.ref.fullName}
+         |  $where
+         |\"\"\".query[${rowType._2.symbol}]
+        """.stripMargin
+
+    val multiget = FunctionDef(
+      Some(privateScope(table)),
+      "multigetUnstableInnerBase",
+      params,
+      returnType,
+      body
+    )
+
+    params.length match {
+      case 0 => None
+      case _ => Some(BaseUnstableMultiget(multiget))
+    }
+  }
+
+
+
+
+
+
 
   /* This contains some hacks. @Todo fix */
   def update(table: Table): Option[Update] =  pkNewType(table).map { pk =>

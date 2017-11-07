@@ -92,6 +92,10 @@ class Generator(analysis: Analysis) {
             |
             |  ${a.multigets(t).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n") }
             |
+            |  ${a.unstableMultiget(t).map { f =>
+                   checkTarget(StatementTypes.MultiGet, ppFunctionDef(f.fn))
+                 }.getOrElse("")}
+            |
             |  ${a.update(t).map { u =>
                  checkTarget(StatementTypes.Update, ppFunctionDef(u.inner) + "\n" + ppFunctionDef(u.outer))
               }.getOrElse("")}
@@ -161,6 +165,8 @@ class Generator(analysis: Analysis) {
             |  ${checkTarget(StatementTypes.Count, checkTest(t, a.count(t).inner))}
             |
             |  ${a.baseMultiget(t).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
+            |
+            |  ${a.unstableMultiget(t).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
             |
             |  ${a.update(t).map { u => checkTarget(StatementTypes.Update, checkTest(t, u.inner)) }.mkString("\n") }
             |}
