@@ -558,18 +558,11 @@ class Analysis(val model: DbModel, val target: Target) {
             List(MultiGet(FunctionDef(None, s"getBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 
           case  _ => List()
-
-
-
         }
-
     }
   }
 
-
-
-
-  def unstableMultiget(table: Table): Option[BaseUnstableMultiget] = {
+  def unstableBaseMultiget(table: Table): Option[BaseUnstableMultiget] = {
     val rowType = rowNewType(table)
 
     /* Hacky for now */
@@ -633,11 +626,81 @@ class Analysis(val model: DbModel, val target: Target) {
     }
   }
 
+  def multigetMaps(table: Table): Seq[MultiGet] = {
+    val rowType = rowNewType(table)
+
+    /* All of these now call through to the underlying multiget */
+    val numPkFields = if (pkNewType(table).isDefined) 1 else 0
+
+    baseMultiget(table).toList.flatMap { base =>
+
+      pkNewType(table).toList.flatMap { pk =>
+
+        def returnType(paramType: String) = s"ConnectionIO[Map[$paramType, ${rowType._2.symbol}]]"
+
+        val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, pk._2)))
+
+        val baseParams = s"Some(${params.map(_.name).head})" :: List.fill(base.fn.params.length - 1)("None")
+        val body =
+          s"""multigetUnstableInnerBase(${baseParams.mkString(", ")})
+             |  .vector
+             |  .map {
+             |    _.groupBy(_.${table.primaryKeyColumns.head.scalaName}).mapValues(_.head)
+             |  }
+             |""".stripMargin
+
+        List(
+          MultiGet(FunctionDef(None, "multigetMap", params, returnType(pk._2.symbol), body))
+        )
+
+      } ++ pkNewType(table).toList.flatMap { pk =>
+
+        val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
+
+        val baseParams = s"Some(${params.map(_.name).head}.map(${pk._2.symbol}(_)))" :: List.fill(base.fn.params.length - 1)("None")
+        val body =
+          s"""multigetUnstableInnerBase(${baseParams.mkString(", ")})
+             |  .vector
+             |  .map {
+             |    _.groupBy(_.${table.primaryKeyColumns.head.scalaName}.value).mapValues(_.head)
+             |  }
+             |""".stripMargin
 
 
+        val returnType = s"ConnectionIO[Map[${table.primaryKeyColumns.head.scalaType.qualifiedSymbol}, ${rowType._2.symbol}]]"
 
+        if (table.primaryKeyColumns.head.references.isDefined) {
+          List(
+            MultiGet(FunctionDef(None, s"multigetMapBy${table.primaryKeyColumns.head.unsafeScalaName.capitalize}", params, returnType, body))
+          )
+        } else {
+          List()
+        }
 
+      } ++table.columns.filter(isInMultiget(table, _)).zipWithIndex.flatMap {
+        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
 
+          val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
+
+          val paramsBefore = i + numPkFields
+          val paramsAfter = base.fn.params.length - (paramsBefore + 1)
+          val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(${params.map(_.name).head})") ++ List.fill(paramsAfter)("None")
+          val body =
+            s"""multigetUnstableInnerBase(${baseParams.mkString(", ")})
+               |  .vector
+               |  .map {
+               |    _.groupBy(_.${c.scalaName})
+               |  }
+               |""".stripMargin
+
+          val returnType = s"ConnectionIO[Map[${c.scalaType.qualifiedSymbol}, Seq[${rowType._2.symbol}]]]"
+
+          List(MultiGet(FunctionDef(None, s"multiMapBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
+
+        case  _ => List()
+      }
+    }
+  }
 
   /* This contains some hacks. @Todo fix */
   def update(table: Table): Option[Update] =  pkNewType(table).map { pk =>
