@@ -20,8 +20,8 @@ val commonScalacOptions = Seq(
   "-Ywarn-dead-code",        // N.B. doesn't work well with the ??? hole
   "-Ywarn-numeric-widen",   
   "-Ywarn-value-discard",
-  "-Xfuture",
-  "-Ystatistics:_"
+  "-Xfuture"
+  //"-Ystatistics:_"
   //"-Ywarn-unused-import"     // 2.11 only - also removed because it's too ambitious right now todo
 )
 
