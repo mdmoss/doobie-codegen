@@ -655,7 +655,7 @@ class Analysis(val model: DbModel, val target: Target) {
       }
 
       column.isNullible match {
-        case true => ScalaType(s"Option[${base.qualifiedSymbol}]", "None", None)
+        case true => ScalaType(s"Option[${base.qualifiedSymbol}]", "None", None, optionOf = Some(base))
         case false => base
       }
     }

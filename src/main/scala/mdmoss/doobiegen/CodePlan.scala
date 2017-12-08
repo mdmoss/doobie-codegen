@@ -18,7 +18,7 @@ case class RowRep(table: TableRef, fields: Seq[RowRepField], scalaType: ScalaTyp
   * @param `package` location relative to the target package, including target name, for generated types
   *                  eg. for mdmoss.doobiegen.db.gen.Test.Row: ScalaType("Row", "Row()", "db.gen.Test")
   */
-case class ScalaType(symbol: String, arb: String, `package`: Option[String]) {
+case class ScalaType(symbol: String, arb: String, `package`: Option[String], optionOf: Option[ScalaType] = None) {
   def qualifiedSymbol: String = `package`.map(_ + ".").getOrElse("") + symbol
   def qualifiedArb: String = `package`.map(_ + ".").getOrElse("") + arb
 }

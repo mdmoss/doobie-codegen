@@ -59,11 +59,24 @@ class Generator(analysis: Analysis) {
             |
             |  ${genShapeType(t).indented()}
             |
-            |  ${CompositeGen.id(this, t)}
-            |
-            |
+            |  ${
+                  {if (target.targetVersion != TargetVersion.DoobieV023 &&
+                       target.targetVersion != TargetVersion.DoobieV024 &&
+                       target.targetVersion != TargetVersion.DoobieV030) {
+                    s"""
+                       |${CompositeGen.id(this, t).indented()}
+                       |
+                       |${CompositeGen.row(this, t).indented()}
+                       |
+                       |${CompositeGen.shape(this, t).indented()}
+                       |
+                       |
+                     """.stripMargin
+                  } else ""
+
+                }.indented()
+            }
             |}
-            |
             |trait ${a.targetObject(t)} {
             |  import ${a.targetObject(t)}._
             |

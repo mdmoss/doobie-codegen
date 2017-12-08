@@ -48,6 +48,9 @@ lazy val main = (project in file(""))
     sourcesInBase := false,
     libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
   )
+  .settings(
+    name := "doobie-codegen"
+  )
 
 /* Test generation settings */
 
