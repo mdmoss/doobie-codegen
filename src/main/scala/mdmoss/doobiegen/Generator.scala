@@ -58,6 +58,10 @@ class Generator(analysis: Analysis) {
             |  ${genRowType(t).indented()}
             |
             |  ${genShapeType(t).indented()}
+            |
+            |  ${CompositeGen.id(this, t)}
+            |
+            |
             |}
             |
             |trait ${a.targetObject(t)} {

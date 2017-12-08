@@ -20,7 +20,8 @@ val commonScalacOptions = Seq(
   "-Ywarn-dead-code",        // N.B. doesn't work well with the ??? hole
   "-Ywarn-numeric-widen",   
   "-Ywarn-value-discard",
-  "-Xfuture"
+  "-Xfuture",
+  "-Ystatistics:_"
   //"-Ywarn-unused-import"     // 2.11 only - also removed because it's too ambitious right now todo
 )
 
@@ -43,7 +44,7 @@ addCommandAlias("fullTest",
 lazy val main = (project in file(""))
   .settings(commonSettings:_*)
   .settings(
-    /* Don't attempt to compile the sample code. */
+    /* Don't attempt tocompile the sample code. */
     sourcesInBase := false,
     libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
   )
@@ -142,6 +143,10 @@ lazy val settings_v4 = Seq(
 
 lazy val out_v4 = (project in file("out_v4"))
   .settings(settings_v4)
+  .settings()
+  .settings(
+    scalacOptions ++= Seq("-Ystatistics:_")
+  )
 
 lazy val test_v4 = (project in file("test_v4"))
   .settings(settings_v4)
