@@ -3,8 +3,8 @@ package mdmoss.doobiegen
 import mdmoss.doobiegen.output.File
 import mdmoss.doobiegen.sql.Table
 import Analysis._
-import mdmoss.doobiegen.Runner.{InsertString, TestDatabase, TargetVersion}
-import mdmoss.doobiegen.Runner.TargetVersion.{DoobieV023, DoobieV024, DoobieV030}
+import mdmoss.doobiegen.Runner.{InsertString, TargetVersion, TestDatabase}
+import mdmoss.doobiegen.Runner.TargetVersion.{DoobieV023, DoobieV024, DoobieV030, DoobieV04}
 import mdmoss.doobiegen.StatementTypes.Statement
 
 class Generator(analysis: Analysis) {
@@ -283,8 +283,17 @@ class Generator(analysis: Analysis) {
       .mkString("\n")
   }
 
+  val mapMethod: String = target.targetVersion match {
+    case DoobieV023 => "nxmap"
+    case DoobieV024 => "nxmap"
+    case DoobieV030 => "nxmap"
+    case DoobieV04 => "xmap"
+    case _ => "xmap"
+  }
+
+
   def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
-  doobie.imports.Meta.other[PGobject]("$jsonType").nxmap[Json](
+  doobie.imports.Meta.other[PGobject]("$jsonType").$mapMethod[Json](
     a => Parse.parse(a.getValue).fold(sys.error, identity), // failure raises an exception
     a => {
       val p = new PGobject
@@ -310,15 +319,15 @@ class Generator(analysis: Analysis) {
     }
 
     val localDateTimeMeta = if (types.contains(sql.Timestamp)) {
-      """implicit val LocalDateTimeMeta: doobie.imports.Meta[LocalDateTime] =
-      doobie.imports.Meta[Timestamp].nxmap(_.toLocalDateTime, Timestamp.valueOf)"""
+      s"""implicit val LocalDateTimeMeta: doobie.imports.Meta[LocalDateTime] =
+      doobie.imports.Meta[Timestamp].$mapMethod(_.toLocalDateTime, Timestamp.valueOf)"""
     } else {
       ""
     }
 
     val localDateMeta = if (types.contains(sql.Date)) {
-      """implicit val LocalDateMeta: doobie.imports.Meta[LocalDate] =
-      doobie.imports.Meta[Date].nxmap(_.toLocalDate, Date.valueOf)"""
+      s"""implicit val LocalDateMeta: doobie.imports.Meta[LocalDate] =
+      doobie.imports.Meta[Date].$mapMethod(_.toLocalDate, Date.valueOf)"""
     } else {
       ""
     }
