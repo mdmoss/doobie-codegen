@@ -283,14 +283,8 @@ class Generator(analysis: Analysis) {
       .mkString("\n")
   }
 
-  val mapMethod: String = target.targetVersion match {
-    case DoobieV023 => "nxmap"
-    case DoobieV024 => "nxmap"
-    case DoobieV030 => "nxmap"
-    case DoobieV04 => "xmap"
-    case _ => "xmap"
-  }
-
+  val useNxmap: Set[TargetVersion] = Set(DoobieV023, DoobieV024, DoobieV030)
+  val mapMethod: String = if (useNxmap.contains(target.targetVersion)) "nxmap" else "xmap"
 
   def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
   doobie.imports.Meta.other[PGobject]("$jsonType").$mapMethod[Json](
