@@ -26,12 +26,18 @@ case class Import(`package`: String) extends CodePart {
   def pp = s"import ${`package`}"
 }
 
-case class FunctionDef(privatePkg: Option[String], name: String, params: Seq[FunctionParam], returnType: String, body: String) extends CodePart {
+object FunctionDef {
+  def apply(privatePkg: Option[String], name: String, params: Seq[FunctionParam], returnType: String, body: String): FunctionDef = {
+    FunctionDef(privatePkg, name, params, Some(returnType), body)
+  }
+}
+
+case class FunctionDef(privatePkg: Option[String], name: String, params: Seq[FunctionParam], returnType: Option[String], body: String) extends CodePart {
   def pp = {
     val scope = privatePkg.map(p => s"private[$p] ").getOrElse("")
     val paramsString = params.map { _.renderAsParam }.mkString(", ")
 
-    s"""${scope}def $name($paramsString): $returnType = {
+    s"""${scope}def $name($paramsString)${returnType.map(": " + _).getOrElse("")} = {
        |${body.chomp.indent(2)}
        |}
      """.stripMargin.chomp
