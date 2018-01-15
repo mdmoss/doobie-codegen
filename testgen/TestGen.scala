@@ -52,11 +52,17 @@ object TestGen {
     targetVersion = TargetVersion.DoobieV04
   )
 
+  val target_v5_scalaz_compat = target_v4.copy(
+    src = "out_v5_scalaz_compat/src",
+    targetVersion = TargetVersion.DoobieV05Scalaz
+  )
+
   def main(args: Array[String]) {
     Runner.run(target_v2_3)
     Runner.run(target_v2_4)
     Runner.run(target_v3_0)
     Runner.run(target_v4)
     Runner.run(target_v4_scala_either)
+    Runner.run(target_v5_scalaz_compat)
   }
 }

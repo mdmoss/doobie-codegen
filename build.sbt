@@ -31,12 +31,14 @@ val commonResolvers = Seq(
   Resolver.sonatypeRepo("snapshots")
 )
 
-addCommandAlias("fullTest", 
+addCommandAlias("fullTest",
+  ";testgen/run" +
   ";out_v2_3/test;test_v2_3/test" + 
   ";out_v2_4/test;test_v2_4/test" + 
   ";out_v3_0/test;test_v3_0/test" +
   ";out_v4/test;test_v4/test" +
-  ";out_v4_scala_either/test;test_v4_scala_either/test"
+  ";out_v4_scala_either/test;test_v4_scala_either/test" +
+  ";out_v5_scalaz_compat/test;test_v5_scalaz_compat/test"
 )
 
 /* General settings */
@@ -178,3 +180,28 @@ lazy val out_v4_scala_either = (project in file("out_v4_scala_either"))
 lazy val test_v4_scala_either = (project in file("test_v4_scala_either"))
   .settings(settings_v4_scala_either)
   .dependsOn(out_v4_scala_either)
+
+/* Version-specific tests - doobie v5 scalaz compat */
+
+lazy val deps_v5_scalaz_compat = Seq(
+  "io.argonaut"    %% "argonaut"          % "6.2",
+  "org.tpolecat"   %% "doobie-core"       % "0.5.0-M13",
+  "org.tpolecat"   %% "doobie-postgres"   % "0.5.0-M13",
+  "org.tpolecat"   %% "doobie-specs2"     % "0.5.0-M13" % "test",
+  "org.scalaz"     %% "scalaz-concurrent" % "7.2.18",
+  "org.postgis"    %  "postgis-jdbc"      % "1.3.3",
+  "com.codecommit" %% "shims"             % "1.1"
+)
+
+lazy val settings_v5_scalaz_compat = Seq(
+  resolvers ++= commonResolvers,
+  libraryDependencies ++= deps_v5_scalaz_compat,
+  scalaVersion := "2.12.4"
+)
+
+lazy val out_v5_scalaz_compat = (project in file("out_v5_scalaz_compat"))
+  .settings(settings_v5_scalaz_compat)
+
+lazy val test_v5_scalaz_compat = (project in file("test_v5_scalaz_compat"))
+  .settings(settings_v5_scalaz_compat)
+  .dependsOn(out_v5_scalaz_compat)

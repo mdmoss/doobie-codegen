@@ -257,7 +257,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val pBody =
       s"insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)"
 
-    val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
+    val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, None, pBody)
 
     val body =
       s"createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList)"
