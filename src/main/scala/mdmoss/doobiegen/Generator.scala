@@ -32,6 +32,12 @@ class Generator(analysis: Analysis) {
     def compressRepeatedBlankLines: String = s.replaceAll("\n( *\n)+", "\n\n")
   }
 
+  def v4Compat = {
+    target.targetVersion != TargetVersion.DoobieV023 &&
+      target.targetVersion != TargetVersion.DoobieV024 &&
+      target.targetVersion != TargetVersion.DoobieV030
+  }
+
   def gen: Seq[File] = {
     /* First aim - objects for each database table */
 
@@ -60,9 +66,7 @@ class Generator(analysis: Analysis) {
             |  ${genShapeType(t).indented()}
             |
             |  ${
-                  {if (target.targetVersion != TargetVersion.DoobieV023 &&
-                       target.targetVersion != TargetVersion.DoobieV024 &&
-                       target.targetVersion != TargetVersion.DoobieV030) {
+                  {if (v4Compat) {
                     s"""
                        |${CompositeGen.id(this, t).indented()}
                        |
@@ -349,11 +353,22 @@ class Generator(analysis: Analysis) {
       else field.scalaName
     }
 
+    def columnNames = row._1.flatMap(_.source).map(_.sqlName)
+
     s"""
        |case class ${row._2.symbol}(
        |  ${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(",\n  ")}
        |) {
        |  def toShape: ${shape._2.symbol} = ${shape._2.symbol}.NoDefaults(${shapeFields.mkString(", ")})
+       |}
+       |
+       |object ${row._2.symbol} {
+       |  ${ if (v4Compat) {
+            s"""val ColumnsFragment: Fragment = fr"${columnNames.mkString(", ")}"
+               |def aliasedColumnsFragment(a: String): Fragment = ${
+              columnNames.map { c => "Fragment.const0(a)" + " ++ fr\"." + c}.mkString(", \" ++ ") + "\""
+            }""".stripMargin.indented()
+        }}
        |}
      """.stripMargin
   }
