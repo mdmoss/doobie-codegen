@@ -88,6 +88,7 @@ object Runner {
     val cleanedAndSplit = sql
       .removeOffSections
       .stripComments
+      .trim
       .splitOnUnescapedSemicolons
       .map(_.trim)
 
