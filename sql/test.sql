@@ -234,3 +234,5 @@ CREATE TABLE test_filtered_multiget(
   column_a BIGINT NOT NULL REFERENCES test_fk_1(id),
   column_b BIGINT NOT NULL REFERENCES test_fk_2(id)
 );
+
+-- comments at the end seem to break things sometimes
