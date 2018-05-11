@@ -185,18 +185,18 @@ lazy val test_v4_scala_either = (project in file("test_v4_scala_either"))
 
 lazy val deps_v5_scalaz_compat = Seq(
   "io.argonaut"    %% "argonaut"          % "6.2",
-  "org.tpolecat"   %% "doobie-core"       % "0.5.0-M13",
-  "org.tpolecat"   %% "doobie-postgres"   % "0.5.0-M13",
-  "org.tpolecat"   %% "doobie-specs2"     % "0.5.0-M13" % "test",
+  "org.tpolecat"   %% "doobie-core"       % "0.5.3",
+  "org.tpolecat"   %% "doobie-postgres"   % "0.5.3",
+  "org.tpolecat"   %% "doobie-specs2"     % "0.5.3" % "test",
   "org.scalaz"     %% "scalaz-concurrent" % "7.2.18",
-  "org.postgis"    %  "postgis-jdbc"      % "1.3.3",
+  "net.postgis"    %  "postgis-jdbc"      % "2.2.1",
   "com.codecommit" %% "shims"             % "1.1"
 )
 
 lazy val settings_v5_scalaz_compat = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v5_scalaz_compat,
-  scalaVersion := "2.12.4"
+  scalaVersion := "2.12.6",
 )
 
 lazy val out_v5_scalaz_compat = (project in file("out_v5_scalaz_compat"))

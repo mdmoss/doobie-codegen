@@ -1,7 +1,7 @@
 package mdmoss.doobiegen
 
-import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, NoWrite, IgnoreDefault}
-import mdmoss.doobiegen.Runner.Target
+import mdmoss.doobiegen.GenOptions.{AlwaysInsertDefault, GenOption, IgnoreDefault, NoWrite}
+import mdmoss.doobiegen.Runner.{Target, TargetVersion}
 import mdmoss.doobiegen.sql.{Column, Table, TableRef}
 
 case class RowRepField(sourceTable: Table, source: List[Column], scalaName: String, scalaType: ScalaType, defaultValue: Option[String] = None)
@@ -247,6 +247,8 @@ class Analysis(val model: DbModel, val target: Target) {
     Create(fn, void)
   }
 
+  private def useRunLogVersions = TargetVersion.DoobieV023 :: TargetVersion.DoobieV024 :: TargetVersion.DoobieV030 :: TargetVersion.DoobieV04 :: Nil
+
   def createMany(table: Table): CreateMany = {
     val im = insertMany(table)
     val rowType = rowNewType(table)
@@ -259,8 +261,10 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, None, pBody)
 
+    val toVectorCommand = if (useRunLogVersions.contains(target.targetVersion)) "runLog" else "compile.toVector"
+
     val body =
-      s"createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList)"
+      s"createManyP(${im.fn.params.map(_.name).mkString(", ")}).$toVectorCommand.map(_.toList)"
 
     val list = FunctionDef(None, "createMany", im.fn.params, s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
@@ -345,6 +349,10 @@ class Analysis(val model: DbModel, val target: Target) {
     Find(inner, outer)
   }
 
+  private def toListVersions = TargetVersion.DoobieV023 :: TargetVersion.DoobieV024 :: TargetVersion.DoobieV030 :: TargetVersion.DoobieV04 :: Nil
+
+  private def toListCommand = if (toListVersions.contains(target.targetVersion)) "list" else "to[List]"
+
   def allUnbounded(table: Table): AllUnbounded = {
     val rowType = rowNewType(table)
 
@@ -352,7 +360,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val bigintMax = "9223372036854775807L"
 
     val body =
-      s"allInner(0, $bigintMax).list"
+      s"allInner(0, $bigintMax).$toListCommand"
 
     val call = FunctionDef(None, "allUnbounded", Seq(), s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
@@ -381,7 +389,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val inner = FunctionDef(Some(privateScope(table)), "allInner", offsetLimit, s"Query0[${rowType._2.symbol}]", innerBody)
 
     val outerBody =
-      "allInner(offset, limit).list"
+      s"allInner(offset, limit).$toListCommand"
 
     val outer = FunctionDef(None, "all", offsetLimit, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
 
@@ -514,7 +522,7 @@ class Analysis(val model: DbModel, val target: Target) {
     s"""if ($listParamName.nonEmpty) {
        |  val distinctValues = $listParamName.distinct
        |  for {
-       |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
+       |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).$toListCommand
        |    resultGrouped = resultRaw.groupBy($groupBy)
        |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
        |} else List.empty.point[ConnectionIO]
@@ -575,7 +583,7 @@ class Analysis(val model: DbModel, val target: Target) {
             val paramsBefore = i + numPkFields
             val paramsAfter = base.fn.params.length - (paramsBefore + 1)
             val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(Seq(${params.map(_.name).head}))") ++ List.fill(paramsAfter)("None")
-            val body = s"multigetInnerBase(${baseParams.mkString(", ")}).list"
+            val body = s"multigetInnerBase(${baseParams.mkString(", ")}).$toListCommand"
 
             List(MultiGet(FunctionDef(None, s"getBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 

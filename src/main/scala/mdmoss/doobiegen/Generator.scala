@@ -377,8 +377,10 @@ class Generator(analysis: Analysis) {
   val useNxmap: Set[TargetVersion] = Set(DoobieV023, DoobieV024, DoobieV030)
   val mapMethod: String = if (useNxmap.contains(target.targetVersion)) "nxmap" else "xmap"
 
-  def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: doobie.imports.Meta[Json] =
-  doobie.imports.Meta.other[PGobject]("$jsonType").$mapMethod[Json](
+  private def metaPrefix = if (OldStyleDoobieImports.contains(target.targetVersion)) "doobie.imports" else "doobie"
+
+  def jsonMetaImpl(jsonType: String) = s"""implicit val JsonMeta: $metaPrefix.Meta[Json] =
+  $metaPrefix.Meta.other[PGobject]("$jsonType").$mapMethod[Json](
     a => Parse.parse(a.getValue).fold(sys.error, identity), // failure raises an exception
     a => {
       val p = new PGobject
@@ -398,21 +400,21 @@ class Generator(analysis: Analysis) {
     } else ""
 
     val uuidArrayMeta = if (types.contains(sql.Uuid) && target.targetVersion == TargetVersion.DoobieV023) {
-      """implicit val UuidArrayMeta: doobie.imports.Meta[Array[UUID]] = doobie.imports.Meta.array("uuid", "_uuid")"""
+      s"""implicit val UuidArrayMeta: $metaPrefix.Meta[Array[UUID]] = $metaPrefix.Meta.array("uuid", "_uuid")"""
     } else {
       ""
     }
 
     val localDateTimeMeta = if (types.contains(sql.Timestamp)) {
-      s"""implicit val LocalDateTimeMeta: doobie.imports.Meta[LocalDateTime] =
-      doobie.imports.Meta[Timestamp].$mapMethod(_.toLocalDateTime, Timestamp.valueOf)"""
+      s"""implicit val LocalDateTimeMeta: $metaPrefix.Meta[LocalDateTime] =
+      $metaPrefix.Meta[Timestamp].$mapMethod(_.toLocalDateTime, Timestamp.valueOf)"""
     } else {
       ""
     }
 
     val localDateMeta = if (types.contains(sql.Date)) {
-      s"""implicit val LocalDateMeta: doobie.imports.Meta[LocalDate] =
-      doobie.imports.Meta[Date].$mapMethod(_.toLocalDate, Date.valueOf)"""
+      s"""implicit val LocalDateMeta: $metaPrefix.Meta[LocalDate] =
+      $metaPrefix.Meta[Date].$mapMethod(_.toLocalDate, Date.valueOf)"""
     } else {
       ""
     }
