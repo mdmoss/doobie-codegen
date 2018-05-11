@@ -196,7 +196,7 @@ lazy val deps_v5_scalaz_compat = Seq(
 lazy val settings_v5_scalaz_compat = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v5_scalaz_compat,
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.6"
 )
 
 lazy val out_v5_scalaz_compat = (project in file("out_v5_scalaz_compat"))
