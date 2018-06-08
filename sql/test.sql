@@ -235,4 +235,7 @@ CREATE TABLE test_filtered_multiget(
   column_b BIGINT NOT NULL REFERENCES test_fk_2(id)
 );
 
+-- the next line is an empty comment, which breaks things
+--
+
 -- comments at the end seem to break things sometimes
