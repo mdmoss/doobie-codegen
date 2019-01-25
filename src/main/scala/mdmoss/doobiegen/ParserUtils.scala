@@ -6,7 +6,7 @@ object ParserUtils {
 
   implicit class SqlStringHelpers(sql: String) {
     def stripComments: String = {
-      """--[^\n]+(\n)?""".r.replaceAllIn(sql, "")
+      """--[^\n]*(\n)?""".r.replaceAllIn(sql, "")
     }
 
     def splitOnUnescapedSemicolons: Seq[String] = {
