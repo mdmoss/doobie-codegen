@@ -79,7 +79,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def fullTarget(table: Table) = targetPackage(table) + "." + targetObject(table)
 
-  def privateScope(table: Table) = target.`package`.split('.').reverse.head
+  def privateScope(table: Table) = "gen"
 
   def resolve(ref: TableRef): Table = model.tables.filter { t =>
     t.ref.schema.map(_.toLowerCase) == ref.schema.map(_.toLowerCase) &&
