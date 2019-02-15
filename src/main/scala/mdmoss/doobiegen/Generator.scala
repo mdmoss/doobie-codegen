@@ -39,6 +39,9 @@ class Generator(analysis: Analysis) {
   }
 
   def gen: Seq[File] = {
+
+    val fragmentAvailable = v4Compat
+
     /* First aim - objects for each database table */
 
     val tableFiles = db.tables.map { t =>
@@ -96,28 +99,28 @@ class Generator(analysis: Analysis) {
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn)).indented()}
             |
-            |  ${a.get(t).map { g =>
+            |  ${a.get(t, fragmentAvailable).map { g =>
                   checkTarget(StatementTypes.Get, ppFunctionDef(g.inner) + "\n" + ppFunctionDef(g.outer))
                 }.getOrElse("").indented()}
             |
-            |  ${a.find(t).map { f =>
+            |  ${a.find(t, fragmentAvailable).map { f =>
                   checkTarget(StatementTypes.Find, ppFunctionDef(f.inner) + "\n" + ppFunctionDef(f.outer))
                }.getOrElse("").indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).inner)).indented()}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t, fragmentAvailable).inner)).indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).outer)).indented()}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t, fragmentAvailable).outer)).indented()}
             |
             |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.allUnbounded(t).fn)).indented()}
             |
             |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).inner)).indented()}
             |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).outer)).indented()}
             |
-            |  ${a.baseMultiget(t).map { f =>
+            |  ${a.baseMultiget(t, fragmentAvailable).map { f =>
                  checkTarget(StatementTypes.MultiGet, ppFunctionDef(f.fn))
                 }.getOrElse("").indented()}
             |
-            |  ${a.multigets(t).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n").indented()}
+            |  ${a.multigets(t, fragmentAvailable).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n").indented()}
             |
             |  ${a.update(t).map { u =>
                  checkTarget(StatementTypes.Update, ppFunctionDef(u.inner) + "\n" + ppFunctionDef(u.outer))
@@ -179,15 +182,15 @@ class Generator(analysis: Analysis) {
             |
             |  ${checkTarget(StatementTypes.CreateMany, checkTest(t, a.insertMany(t).fn))}
             |
-            |  ${a.get(t).map { g => checkTarget(StatementTypes.Get, checkTest(t, g.inner))}.getOrElse("")}
+            |  ${a.get(t, fragmentAvailable).map { g => checkTarget(StatementTypes.Get, checkTest(t, g.inner))}.getOrElse("")}
             |
-            |  ${a.find(t).map { f => checkTarget(StatementTypes.Find, checkTest(t, f.inner))}.getOrElse("")}
+            |  ${a.find(t, fragmentAvailable).map { f => checkTarget(StatementTypes.Find, checkTest(t, f.inner))}.getOrElse("")}
             |
-            |  ${checkTarget(StatementTypes.All, checkTest(t, a.all(t).inner))}
+            |  ${checkTarget(StatementTypes.All, checkTest(t, a.all(t, fragmentAvailable).inner))}
             |
             |  ${checkTarget(StatementTypes.Count, checkTest(t, a.count(t).inner))}
             |
-            |  ${a.baseMultiget(t).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
+            |  ${a.baseMultiget(t, fragmentAvailable).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
             |
             |  ${a.update(t).map { u => checkTarget(StatementTypes.Update, checkTest(t, u.inner)) }.mkString("\n") }
             |}
@@ -396,8 +399,8 @@ class Generator(analysis: Analysis) {
 
   def ppFunctionDef(fn: FunctionDef): String = fn.pp
 
-  def genGet(table: Table): String = {
-    a.get(table).map { get =>
+  def genGet(table: Table, withFragment: Boolean): String = {
+    a.get(table, withFragment).map { get =>
       s"""${ppFunctionDef(get.inner)}
          |${ppFunctionDef(get.outer)}
        """.stripMargin
