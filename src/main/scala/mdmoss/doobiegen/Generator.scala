@@ -180,6 +180,8 @@ class Generator(analysis: Analysis) {
                   }
                 }
             |
+            |  ${if (fragmentAvailable) checkAliasedColumnsFragment(t) else ""}
+            |
             |  ${checkTarget(StatementTypes.CreateMany, checkTest(t, a.insertMany(t).fn))}
             |
             |  ${a.get(t, fragmentAvailable).map { g => checkTarget(StatementTypes.Get, checkTest(t, g.inner))}.getOrElse("")}
@@ -410,6 +412,12 @@ class Generator(analysis: Analysis) {
   def checkTest(table: Table, fn: FunctionDef): String = {
     val obj = a.targetObject(table)
     s"""check($obj.${fn.name}(${fn.params.map(_.`type`.qualifiedArb).mkString(", ")}))"""
+  }
+
+  def checkAliasedColumnsFragment(table: Table): String = {
+    val obj = a.targetObject(table)
+    val row = a.rowNewType(table)
+    s"""check((fr"SELECT" ++ $obj.${row._2.symbol}.aliasedColumnsFragment("test_alias") ++ fr"FROM ${table.ref.fullName} test_alias").query[$obj.${row._2.symbol}])"""
   }
 
 }
