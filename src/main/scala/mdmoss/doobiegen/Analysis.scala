@@ -433,29 +433,6 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val returnType = s"Query0[${rowType._2.symbol}]"
 
-    val joins = (pkNewType(table).map { pk =>
-      val arrayName = pk._1.head.source.head.scalaName
-
-      val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
-      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
-
-      val columnType = pk._1.head.source.head.sqlType.underlyingType
-
-      s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
-    }.toList ++ multigetColumns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
-
-          val rowRep = rowType._1.find(_.source.head == c).get
-          val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
-          val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
-
-            Seq(
-              s"LEFT JOIN unnest(${matchArray}::${c.sqlType.underlyingType}[]) WITH ORDINALITY t$i(val, ord) ON t$i.val = ${c.sqlNameInTable(table)}"
-            )
-        case _ => Seq()
-        }
-      ).mkString("\n")
-
     val where = "WHERE " + (pkNewType(table).map { pk =>
       val arrayName = pk._1.head.source.head.scalaName
 
@@ -476,14 +453,6 @@ class Analysis(val model: DbModel, val target: Target) {
     }
       ).mkString("\nAND ")
 
-    val orderBy = "ORDER BY " + (pkNewType(table).map(_ => "t0.ord").toList ++
-      multigetColumns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
-          Seq(s"t$i.ord")
-        case _ => Seq()
-      }
-      ).mkString(", ")
-
     val selectExpression = if (withFragment) {
       fragmentSelectExpression(table)
     } else {
@@ -494,9 +463,7 @@ class Analysis(val model: DbModel, val target: Target) {
       s"""(sql\"\"\"
         |  SELECT $selectExpression
         |  FROM ${table.ref.fullName}
-        |  $joins
         |  $where
-        |  $orderBy
         |\"\"\").query[${rowType._2.symbol}]
         """.stripMargin
 
