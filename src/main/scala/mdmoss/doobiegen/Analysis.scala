@@ -489,6 +489,21 @@ class Analysis(val model: DbModel, val target: Target) {
     c.reference.isDefined && !c.isNullible && !c.isPrimaryKey && !excludedColumns.contains(c.sqlName)
   }
 
+  private def multigetBody(
+    base: BaseMultiget,
+    listParamName: String,
+    paramsBefore: Int,
+    paramsAfter: Int,
+    finalMap: Option[String]
+  ): String = {
+
+    val baseParams = List.fill(paramsBefore)("None") ++
+      List(s"Some($listParamName" + finalMap.map(f => s".map($f)").getOrElse("") + ")") ++
+      List.fill(paramsAfter)("None")
+
+    s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+  }
+
   def multigets(table: Table, withFragment: Boolean): Seq[MultiGet] = {
     val rowType = rowNewType(table)
 
@@ -503,9 +518,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, pk._2)))
 
-          val listParamName = params.map(_.name).head
-          val baseParams = s"Some($listParamName)" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, None)
 
           List(
             MultiGet(FunctionDef(None, "multiget", params, returnType, body))
@@ -515,9 +528,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
 
-          val listParamName = params.map(_.name).head
-          val baseParams = s"Some($listParamName.map(${pk._2.symbol}(_)))" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, Some(s"${pk._2.symbol}(_)"))
 
           if (table.primaryKeyColumns.head.references.isDefined) {
             List(
@@ -532,11 +543,9 @@ class Analysis(val model: DbModel, val target: Target) {
 
             val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
 
-            val listParamName = params.map(_.name).head
             val paramsBefore = i + numPkFields
             val paramsAfter = base.fn.params.length - (paramsBefore + 1)
-            val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(${listParamName})") ++ List.fill(paramsAfter)("None")
-            val body = s"if (${listParamName}.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+            val body = multigetBody(base, params.map(_.name).head, paramsBefore, paramsAfter, None)
 
             List(MultiGet(FunctionDef(None, s"multigetBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 
