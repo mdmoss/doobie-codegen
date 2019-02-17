@@ -186,6 +186,10 @@ class Analysis(val model: DbModel, val target: Target) {
     }
   }
 
+  private def fragmentSelectExpression(table: Table): String = {
+    s"""\"\"\" ++ ${rowNewType(table)._2.symbol}.ColumnsFragment ++ sql\"\"\""""
+  }
+
   /* We somehow get information about row sources / values from different places. @Todo unify */
   def insert(table: Table): Insert = {
 
@@ -275,16 +279,22 @@ class Analysis(val model: DbModel, val target: Target) {
     Create(fn)
   }
 
-  def get(table: Table): Option[Get] = pkNewType(table).map { pk =>
+  def get(table: Table, withFragment: Boolean): Option[Get] = pkNewType(table).map { pk =>
 
     val rowType = rowNewType(table)
 
+    val selectExpression = if (withFragment) {
+      fragmentSelectExpression(table)
+    } else {
+      rowType._1.sqlColumnsInTable(table)
+    }
+
     val innerBody =
-      s"""sql\"\"\"
-         |  SELECT ${rowType._1.sqlColumnsInTable(table)}
+      s"""(sql\"\"\"
+         |  SELECT $selectExpression
          |  FROM ${table.ref.fullName}
          |  WHERE ${pk._1.sqlColumnsInTable(table)} = $${${pk._1.head.source.head.scalaName}}
-         |\"\"\".query[${rowType._2.symbol}]
+         |\"\"\").query[${rowType._2.symbol}]
        """.stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "getInner", Seq(FunctionParam(pk._1.head.source.head.scalaName, pk._2)), s"Query0[${rowType._2.symbol}]", innerBody)
@@ -299,16 +309,22 @@ class Analysis(val model: DbModel, val target: Target) {
     Get(inner, outer)
   }
 
-  def find(table: Table): Option[Find] = pkNewType(table).map { pk =>
+  def find(table: Table, withFragment: Boolean): Option[Find] = pkNewType(table).map { pk =>
 
     val rowType = rowNewType(table)
 
+    val selectExpression = if (withFragment) {
+      fragmentSelectExpression(table)
+    } else {
+      rowType._1.sqlColumnsInTable(table)
+    }
+
     val innerBody =
-      s"""sql\"\"\"
-          |  SELECT ${rowType._1.sqlColumnsInTable(table)}
+      s"""(sql\"\"\"
+          |  SELECT $selectExpression
           |  FROM ${table.ref.fullName}
           |  WHERE ${pk._1.sqlColumnsInTable(table)} = $${${pk._1.head.source.head.scalaName}}
-          |\"\"\".query[${rowType._2.symbol}]
+          |\"\"\").query[${rowType._2.symbol}]
        """.stripMargin
 
     val params = pk._1 match {
@@ -337,17 +353,23 @@ class Analysis(val model: DbModel, val target: Target) {
     AllUnbounded(call)
   }
 
-  def all(table: Table): All = {
+  def all(table: Table, withFragment: Boolean): All = {
     val rowType = rowNewType(table)
     val offsetLimit = Seq(FunctionParam("offset", ScalaType("Long", "0L", None)), FunctionParam("limit", ScalaType("Long", "0L", None)))
 
+    val selectExpression = if (withFragment) {
+      fragmentSelectExpression(table)
+    } else {
+      rowType._1.sqlColumnsInTable(table)
+    }
+
     val innerBody =
-      s"""sql\"\"\"
-          |  SELECT ${rowType._1.sqlColumnsInTable(table)}
+      s"""(sql\"\"\"
+          |  SELECT $selectExpression
           |  FROM ${table.ref.fullName}
           |  OFFSET $$offset
           |  LIMIT $$limit
-          |\"\"\".query[${rowType._2.symbol}]
+          |\"\"\").query[${rowType._2.symbol}]
        """.stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "allInner", offsetLimit, s"Query0[${rowType._2.symbol}]", innerBody)
@@ -389,7 +411,7 @@ class Analysis(val model: DbModel, val target: Target) {
     }
   }
 
-  def baseMultiget(table: Table): Option[BaseMultiget] = {
+  def baseMultiget(table: Table, withFragment: Boolean): Option[BaseMultiget] = {
     val rowType = rowNewType(table)
 
     /* Hacky for now */
@@ -462,14 +484,20 @@ class Analysis(val model: DbModel, val target: Target) {
       }
       ).mkString(", ")
 
+    val selectExpression = if (withFragment) {
+      fragmentSelectExpression(table)
+    } else {
+      rowType._1.sqlColumnsInTable(table)
+    }
+
     val body =
-      s"""sql\"\"\"
-        |  SELECT ${rowType._1.sqlColumnsInTable(table)}
+      s"""(sql\"\"\"
+        |  SELECT $selectExpression
         |  FROM ${table.ref.fullName}
         |  $joins
         |  $where
         |  $orderBy
-        |\"\"\".query[${rowType._2.symbol}]
+        |\"\"\").query[${rowType._2.symbol}]
         """.stripMargin
 
     val multiget = FunctionDef(
@@ -494,7 +522,7 @@ class Analysis(val model: DbModel, val target: Target) {
     c.reference.isDefined && !c.isNullible && !c.isPrimaryKey && !excludedColumns.contains(c.sqlName)
   }
 
-  def multigets(table: Table): Seq[MultiGet] = {
+  def multigets(table: Table, withFragment: Boolean): Seq[MultiGet] = {
     val rowType = rowNewType(table)
 
     /* All of these now call through to the underlying multiget */
@@ -502,7 +530,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val numPkFields = if (pkNewType(table).isDefined) 1 else 0
 
-    baseMultiget(table).toList.flatMap { base =>
+    baseMultiget(table, withFragment).toList.flatMap { base =>
 
         pkNewType(table).toList.flatMap { pk =>
 

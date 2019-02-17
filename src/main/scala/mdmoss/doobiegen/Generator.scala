@@ -32,7 +32,16 @@ class Generator(analysis: Analysis) {
     def compressRepeatedBlankLines: String = s.replaceAll("\n( *\n)+", "\n\n")
   }
 
+  def v4Compat = {
+    target.targetVersion != TargetVersion.DoobieV023 &&
+      target.targetVersion != TargetVersion.DoobieV024 &&
+      target.targetVersion != TargetVersion.DoobieV030
+  }
+
   def gen: Seq[File] = {
+
+    val fragmentAvailable = v4Compat
+
     /* First aim - objects for each database table */
 
     val tableFiles = db.tables.map { t =>
@@ -60,9 +69,7 @@ class Generator(analysis: Analysis) {
             |  ${genShapeType(t).indented()}
             |
             |  ${
-                  {if (target.targetVersion != TargetVersion.DoobieV023 &&
-                       target.targetVersion != TargetVersion.DoobieV024 &&
-                       target.targetVersion != TargetVersion.DoobieV030) {
+                  {if (v4Compat) {
                     s"""
                        |${CompositeGen.id(this, t).indented()}
                        |
@@ -92,28 +99,28 @@ class Generator(analysis: Analysis) {
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn)).indented()}
             |
-            |  ${a.get(t).map { g =>
+            |  ${a.get(t, fragmentAvailable).map { g =>
                   checkTarget(StatementTypes.Get, ppFunctionDef(g.inner) + "\n" + ppFunctionDef(g.outer))
                 }.getOrElse("").indented()}
             |
-            |  ${a.find(t).map { f =>
+            |  ${a.find(t, fragmentAvailable).map { f =>
                   checkTarget(StatementTypes.Find, ppFunctionDef(f.inner) + "\n" + ppFunctionDef(f.outer))
                }.getOrElse("").indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).inner)).indented()}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t, fragmentAvailable).inner)).indented()}
             |
-            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t).outer)).indented()}
+            |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.all(t, fragmentAvailable).outer)).indented()}
             |
             |  ${checkTarget(StatementTypes.All, ppFunctionDef(a.allUnbounded(t).fn)).indented()}
             |
             |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).inner)).indented()}
             |  ${checkTarget(StatementTypes.Count, ppFunctionDef(a.count(t).outer)).indented()}
             |
-            |  ${a.baseMultiget(t).map { f =>
+            |  ${a.baseMultiget(t, fragmentAvailable).map { f =>
                  checkTarget(StatementTypes.MultiGet, ppFunctionDef(f.fn))
                 }.getOrElse("").indented()}
             |
-            |  ${a.multigets(t).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n").indented()}
+            |  ${a.multigets(t, fragmentAvailable).map { m => checkTarget(StatementTypes.MultiGet, ppFunctionDef(m.inner)) }.mkString("\n").indented()}
             |
             |  ${a.update(t).map { u =>
                  checkTarget(StatementTypes.Update, ppFunctionDef(u.inner) + "\n" + ppFunctionDef(u.outer))
@@ -173,17 +180,19 @@ class Generator(analysis: Analysis) {
                   }
                 }
             |
+            |  ${if (fragmentAvailable) checkAliasedColumnsFragment(t) else ""}
+            |
             |  ${checkTarget(StatementTypes.CreateMany, checkTest(t, a.insertMany(t).fn))}
             |
-            |  ${a.get(t).map { g => checkTarget(StatementTypes.Get, checkTest(t, g.inner))}.getOrElse("")}
+            |  ${a.get(t, fragmentAvailable).map { g => checkTarget(StatementTypes.Get, checkTest(t, g.inner))}.getOrElse("")}
             |
-            |  ${a.find(t).map { f => checkTarget(StatementTypes.Find, checkTest(t, f.inner))}.getOrElse("")}
+            |  ${a.find(t, fragmentAvailable).map { f => checkTarget(StatementTypes.Find, checkTest(t, f.inner))}.getOrElse("")}
             |
-            |  ${checkTarget(StatementTypes.All, checkTest(t, a.all(t).inner))}
+            |  ${checkTarget(StatementTypes.All, checkTest(t, a.all(t, fragmentAvailable).inner))}
             |
             |  ${checkTarget(StatementTypes.Count, checkTest(t, a.count(t).inner))}
             |
-            |  ${a.baseMultiget(t).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
+            |  ${a.baseMultiget(t, fragmentAvailable).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
             |
             |  ${a.update(t).map { u => checkTarget(StatementTypes.Update, checkTest(t, u.inner)) }.mkString("\n") }
             |}
@@ -349,11 +358,22 @@ class Generator(analysis: Analysis) {
       else field.scalaName
     }
 
+    def columnNames = row._1.flatMap(_.source).map(_.sqlName)
+
     s"""
        |case class ${row._2.symbol}(
        |  ${row._1.map(f => s"${f.scalaName}: ${f.scalaType.qualifiedSymbol}").mkString(",\n  ")}
        |) {
        |  def toShape: ${shape._2.symbol} = ${shape._2.symbol}.NoDefaults(${shapeFields.mkString(", ")})
+       |}
+       |
+       |object ${row._2.symbol} {
+       |  ${ if (v4Compat) {
+            s"""val ColumnsFragment: Fragment = fr"${columnNames.mkString(", ")}"
+               |def aliasedColumnsFragment(a: String): Fragment = ${
+              columnNames.map { c => "Fragment.const0(a)" + " ++ fr\"." + c}.mkString(", \" ++ ") + "\""
+            }""".stripMargin.indented()
+        }}
        |}
      """.stripMargin
   }
@@ -381,8 +401,8 @@ class Generator(analysis: Analysis) {
 
   def ppFunctionDef(fn: FunctionDef): String = fn.pp
 
-  def genGet(table: Table): String = {
-    a.get(table).map { get =>
+  def genGet(table: Table, withFragment: Boolean): String = {
+    a.get(table, withFragment).map { get =>
       s"""${ppFunctionDef(get.inner)}
          |${ppFunctionDef(get.outer)}
        """.stripMargin
@@ -392,6 +412,12 @@ class Generator(analysis: Analysis) {
   def checkTest(table: Table, fn: FunctionDef): String = {
     val obj = a.targetObject(table)
     s"""check($obj.${fn.name}(${fn.params.map(_.`type`.qualifiedArb).mkString(", ")}))"""
+  }
+
+  def checkAliasedColumnsFragment(table: Table): String = {
+    val obj = a.targetObject(table)
+    val row = a.rowNewType(table)
+    s"""check((fr"SELECT" ++ $obj.${row._2.symbol}.aliasedColumnsFragment("test_alias") ++ fr"FROM ${table.ref.fullName} test_alias").query[$obj.${row._2.symbol}])"""
   }
 
 }
