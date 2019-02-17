@@ -491,17 +491,28 @@ class Analysis(val model: DbModel, val target: Target) {
 
   private def multigetBody(
     base: BaseMultiget,
-    listParamName: String,
+    columnScalaName: String,
     paramsBefore: Int,
     paramsAfter: Int,
-    finalMap: Option[String]
+    finalMap: Option[String],
+    groupByInnerValue: Boolean = false
   ): String = {
-
+    val listParamName = columnScalaName
     val baseParams = List.fill(paramsBefore)("None") ++
-      List(s"Some($listParamName" + finalMap.map(f => s".map($f)").getOrElse("") + ")") ++
+      List(s"Some(distinctValues" + finalMap.map(f => s".map($f)").getOrElse("") + ")") ++
       List.fill(paramsAfter)("None")
 
-    s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+
+    val groupBy = s"_.$columnScalaName" ++ (if (groupByInnerValue) ".value" else "")
+
+    s"""if ($listParamName.nonEmpty) {
+        |  val distinctValues = $listParamName.distinct
+        |  for {
+        |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
+        |    resultGrouped = resultRaw.groupBy($groupBy)
+        |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+        |} else List.empty.point[ConnectionIO]
+        |""".stripMargin
   }
 
   def multigets(table: Table, withFragment: Boolean): Seq[MultiGet] = {
@@ -528,7 +539,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
 
-          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, Some(s"${pk._2.symbol}(_)"))
+          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, Some(s"${pk._2.symbol}(_)"), groupByInnerValue = true)
 
           if (table.primaryKeyColumns.head.references.isDefined) {
             List(
