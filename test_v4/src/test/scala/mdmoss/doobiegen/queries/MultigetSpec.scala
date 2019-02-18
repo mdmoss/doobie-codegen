@@ -54,6 +54,13 @@ object MultigetSpec extends Specification with ThrownExpectations {
           gen.TestFk_2.multigetByFk(rows.map(_.id)).transact(xa).unsafePerformSync.map(_.fk)
         }
       }
+
+      "only return all matching rows" >> {
+        val fk2RowsByFk = fk2Rows.groupBy(_.fk).mapValues(_.toSet)
+        val fkToQuery = fk1Rows.tail.map(_.id)
+        val expectedResult = fkToQuery.toSet.flatMap(fk2RowsByFk)
+        expectedResult must_=== gen.TestFk_2.multigetByFk(fkToQuery).transact(xa).unsafePerformSync.toSet
+      }
     }
   }
 }
