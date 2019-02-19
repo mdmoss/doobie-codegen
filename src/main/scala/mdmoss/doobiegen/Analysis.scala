@@ -433,29 +433,6 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val returnType = s"Query0[${rowType._2.symbol}]"
 
-    val joins = (pkNewType(table).map { pk =>
-      val arrayName = pk._1.head.source.head.scalaName
-
-      val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
-      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
-
-      val columnType = pk._1.head.source.head.sqlType.underlyingType
-
-      s"LEFT JOIN unnest($matchArray::$columnType[]) WITH ORDINALITY t0(val, ord) ON t0.val = ${pk._1.head.source.head.sqlNameInTable(table)}"
-    }.toList ++ multigetColumns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
-
-          val rowRep = rowType._1.find(_.source.head == c).get
-          val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
-          val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
-
-            Seq(
-              s"LEFT JOIN unnest(${matchArray}::${c.sqlType.underlyingType}[]) WITH ORDINALITY t$i(val, ord) ON t$i.val = ${c.sqlNameInTable(table)}"
-            )
-        case _ => Seq()
-        }
-      ).mkString("\n")
-
     val where = "WHERE " + (pkNewType(table).map { pk =>
       val arrayName = pk._1.head.source.head.scalaName
 
@@ -476,14 +453,6 @@ class Analysis(val model: DbModel, val target: Target) {
     }
       ).mkString("\nAND ")
 
-    val orderBy = "ORDER BY " + (pkNewType(table).map(_ => "t0.ord").toList ++
-      multigetColumns.zipWithIndex.flatMap {
-        case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
-          Seq(s"t$i.ord")
-        case _ => Seq()
-      }
-      ).mkString(", ")
-
     val selectExpression = if (withFragment) {
       fragmentSelectExpression(table)
     } else {
@@ -494,9 +463,7 @@ class Analysis(val model: DbModel, val target: Target) {
       s"""(sql\"\"\"
         |  SELECT $selectExpression
         |  FROM ${table.ref.fullName}
-        |  $joins
         |  $where
-        |  $orderBy
         |\"\"\").query[${rowType._2.symbol}]
         """.stripMargin
 
@@ -522,6 +489,32 @@ class Analysis(val model: DbModel, val target: Target) {
     c.reference.isDefined && !c.isNullible && !c.isPrimaryKey && !excludedColumns.contains(c.sqlName)
   }
 
+  private def multigetBody(
+    base: BaseMultiget,
+    columnScalaName: String,
+    paramsBefore: Int,
+    paramsAfter: Int,
+    finalMap: Option[String],
+    groupByInnerValue: Boolean = false
+  ): String = {
+    val listParamName = columnScalaName
+    val baseParams = List.fill(paramsBefore)("None") ++
+      List(s"Some(distinctValues" + finalMap.map(f => s".map($f)").getOrElse("") + ")") ++
+      List.fill(paramsAfter)("None")
+
+
+    val groupBy = s"_.$columnScalaName" ++ (if (groupByInnerValue) ".value" else "")
+
+    s"""if ($listParamName.nonEmpty) {
+        |  val distinctValues = $listParamName.distinct
+        |  for {
+        |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
+        |    resultGrouped = resultRaw.groupBy($groupBy)
+        |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+        |} else List.empty.point[ConnectionIO]
+        |""".stripMargin
+  }
+
   def multigets(table: Table, withFragment: Boolean): Seq[MultiGet] = {
     val rowType = rowNewType(table)
 
@@ -536,9 +529,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, pk._2)))
 
-          val listParamName = params.map(_.name).head
-          val baseParams = s"Some($listParamName)" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, None)
 
           List(
             MultiGet(FunctionDef(None, "multiget", params, returnType, body))
@@ -548,9 +539,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
 
-          val listParamName = params.map(_.name).head
-          val baseParams = s"Some($listParamName.map(${pk._2.symbol}(_)))" :: List.fill(base.fn.params.length - 1)("None")
-          val body = s"if ($listParamName.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+          val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, Some(s"${pk._2.symbol}(_)"), groupByInnerValue = true)
 
           if (table.primaryKeyColumns.head.references.isDefined) {
             List(
@@ -565,11 +554,9 @@ class Analysis(val model: DbModel, val target: Target) {
 
             val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
 
-            val listParamName = params.map(_.name).head
             val paramsBefore = i + numPkFields
             val paramsAfter = base.fn.params.length - (paramsBefore + 1)
-            val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(${listParamName})") ++ List.fill(paramsAfter)("None")
-            val body = s"if (${listParamName}.nonEmpty) multigetInnerBase(${baseParams.mkString(", ")}).list else List.empty.point[ConnectionIO]"
+            val body = multigetBody(base, params.map(_.name).head, paramsBefore, paramsAfter, None)
 
             List(MultiGet(FunctionDef(None, s"multigetBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 
