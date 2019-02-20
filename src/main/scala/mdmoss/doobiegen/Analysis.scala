@@ -10,9 +10,9 @@ case class Insert(fn: FunctionDef)
 
 case class InsertMany(fn: FunctionDef)
 
-case class Create(fn: FunctionDef)
+case class Create(fn: FunctionDef, void: FunctionDef)
 
-case class CreateMany(process: FunctionDef, list: FunctionDef)
+case class CreateMany(process: FunctionDef, list: FunctionDef, void: FunctionDef)
 
 case class Get(inner: FunctionDef, outer: FunctionDef)
 
@@ -34,7 +34,7 @@ object Analysis {
 
   /* Helpers */
   implicit class CamelCaseStrings(s: String) {
-    def camelCase: String = """_([a-z])""".r.replaceAllIn(s, m => m.group(1).capitalize)
+    def camelCase: String = "_([a-z])".r.replaceAllIn(s, m => m.group(1).capitalize)
   }
 
   implicit class RowRepsForInsert(l: List[RowRepField]) {
@@ -202,10 +202,10 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val body =
       s"""sql\"\"\"
-          |  INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns})
-          |  VALUES ($values)
-          |\"\"\".update
-      """.stripMargin.trim
+         |  INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns})
+         |  VALUES ($values)
+         |\"\"\".update
+         |""".stripMargin.trim
 
     val fn = FunctionDef(Some(privateScope(table)), "insert", params, "Update0", body)
     Insert(fn)
@@ -222,10 +222,9 @@ class Analysis(val model: DbModel, val target: Target) {
     ).mkString(", ")
 
     val body =
-      s"""
-        |val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($values)"
-        |Update[${shape._2.symbol}](sql)
-      """.stripMargin
+      s"""val sql = "INSERT INTO ${table.ref.fullName} (${rowNewType(table)._1.sqlColumns}) VALUES ($values)"
+         |Update[${shape._2.symbol}](sql)
+         |""".stripMargin
 
     val param = FunctionParam("values", ScalaType(s"List[${shape._2.qualifiedSymbol}]", "List()", None))
     val fn = FunctionDef(Some(privateScope(table)), "insertMany", List(param), "Update[Shape]", body)
@@ -237,12 +236,15 @@ class Analysis(val model: DbModel, val target: Target) {
     val rowType = rowNewType(table)
 
     val body =
-      s"""
-        |  create(Shape(${in.fn.params.map(f => f.name).mkString(", ")}))
-     """.stripMargin
+      s"create(Shape(${in.fn.params.map(f => f.name).mkString(", ")}))"
 
     val fn = FunctionDef(None, "create", in.fn.params, s"ConnectionIO[${rowType._2.symbol}]", body)
-    Create(fn)
+
+    val vBody =
+      s"createVoid(Shape(${in.fn.params.map(f => f.name).mkString(", ")}))"
+
+    val void = FunctionDef(None, "createVoid", in.fn.params, "ConnectionIO[Unit]", vBody)
+    Create(fn, void)
   }
 
   def createMany(table: Table): CreateMany = {
@@ -253,19 +255,20 @@ class Analysis(val model: DbModel, val target: Target) {
     val columns = rowType._1.flatMap(_.source).map(s => "\"" + s.sqlName.toLowerCase + "\"").mkString(", ")
 
     val pBody =
-      s"""
-          insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)
-       """
+      s"insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)"
 
     val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
 
     val body =
-      s"""
-         createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList)
-       """
+      s"createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList)"
 
     val list = FunctionDef(None, "createMany", im.fn.params, s"ConnectionIO[List[${rowType._2.symbol}]]", body)
-    CreateMany(process, list)
+
+    val vBody =
+      s"insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateMany[List]($insertData).map(_ => ())"
+
+    val void = FunctionDef(None, "createManyVoid", im.fn.params, "ConnectionIO[Unit]", vBody)
+    CreateMany(process, list, void)
   }
 
   def createShape(table: Table): Create = {
@@ -273,10 +276,15 @@ class Analysis(val model: DbModel, val target: Target) {
     val rowType = rowNewType(table)
 
     val body =
-      s"""createMany(shape :: Nil).map(_.head)""".stripMargin
+      "createMany(shape :: Nil).map(_.head)"
 
     val fn = FunctionDef(None, "create", FunctionParam("shape", shape._2, None) :: Nil, s"ConnectionIO[${rowType._2.symbol}]", body)
-    Create(fn)
+
+    val vBody =
+      "createManyVoid(shape :: Nil)"
+
+    val void = FunctionDef(None, "createVoid", FunctionParam("shape", shape._2, None) :: Nil, s"ConnectionIO[Unit]", vBody)
+    Create(fn, void)
   }
 
   def get(table: Table, withFragment: Boolean): Option[Get] = pkNewType(table).map { pk =>
@@ -295,14 +303,12 @@ class Analysis(val model: DbModel, val target: Target) {
          |  FROM ${table.ref.fullName}
          |  WHERE ${pk._1.sqlColumnsInTable(table)} = $${${pk._1.head.source.head.scalaName}}
          |\"\"\").query[${rowType._2.symbol}]
-       """.stripMargin
+         |""".stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "getInner", Seq(FunctionParam(pk._1.head.source.head.scalaName, pk._2)), s"Query0[${rowType._2.symbol}]", innerBody)
 
     val outerBody =
-      s"""
-         |getInner(${inner.params.map(_.name).mkString(",")}).unique
-       """.stripMargin
+      s"getInner(${inner.params.map(_.name).mkString(",")}).unique"
 
     val outer = FunctionDef(None, "get", inner.params, s"ConnectionIO[${rowType._2.symbol}]", outerBody)
 
@@ -321,11 +327,11 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val innerBody =
       s"""(sql\"\"\"
-          |  SELECT $selectExpression
-          |  FROM ${table.ref.fullName}
-          |  WHERE ${pk._1.sqlColumnsInTable(table)} = $${${pk._1.head.source.head.scalaName}}
-          |\"\"\").query[${rowType._2.symbol}]
-       """.stripMargin
+         |  SELECT $selectExpression
+         |  FROM ${table.ref.fullName}
+         |  WHERE ${pk._1.sqlColumnsInTable(table)} = $${${pk._1.head.source.head.scalaName}}
+         |\"\"\").query[${rowType._2.symbol}]
+         |""".stripMargin
 
     val params = pk._1 match {
       case p :: Nil => Seq(FunctionParam(p.source.head.scalaName, p.scalaType))
@@ -333,7 +339,7 @@ class Analysis(val model: DbModel, val target: Target) {
     }
     val inner = FunctionDef(Some(privateScope(table)), "findInner", params, s"Query0[${rowType._2.symbol}]", innerBody)
 
-    val outerBody = s"""findInner(${params.map(_.name).mkString(", ")}).option"""
+    val outerBody = s"findInner(${params.map(_.name).mkString(", ")}).option"
     val outer = FunctionDef(None, "find", params, s"ConnectionIO[Option[${rowType._2.symbol}]]", outerBody)
 
     Find(inner, outer)
@@ -346,7 +352,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val bigintMax = "9223372036854775807L"
 
     val body =
-      s"""allInner(0, $bigintMax).list"""
+      s"allInner(0, $bigintMax).list"
 
     val call = FunctionDef(None, "allUnbounded", Seq(), s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
@@ -365,17 +371,17 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val innerBody =
       s"""(sql\"\"\"
-          |  SELECT $selectExpression
-          |  FROM ${table.ref.fullName}
-          |  OFFSET $$offset
-          |  LIMIT $$limit
-          |\"\"\").query[${rowType._2.symbol}]
-       """.stripMargin
+         |  SELECT $selectExpression
+         |  FROM ${table.ref.fullName}
+         |  OFFSET $$offset
+         |  LIMIT $$limit
+         |\"\"\").query[${rowType._2.symbol}]
+         |""".stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "allInner", offsetLimit, s"Query0[${rowType._2.symbol}]", innerBody)
 
     val outerBody =
-      s"""allInner(offset, limit).list"""
+      "allInner(offset, limit).list"
 
     val outer = FunctionDef(None, "all", offsetLimit, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
 
@@ -385,14 +391,14 @@ class Analysis(val model: DbModel, val target: Target) {
   def count(table: Table): Count = {
     val innerBody =
       s"""sql\"\"\"
-          |  SELECT COUNT(*)
-          |  FROM ${table.ref.fullName}
-          |\"\"\".query[Long]
-       """.stripMargin
+         |  SELECT COUNT(*)
+         |  FROM ${table.ref.fullName}
+         |\"\"\".query[Long]
+         |""".stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "countInner", Seq(), "Query0[Long]", innerBody)
 
-    val outerBody = s"countInner().unique"
+    val outerBody = "countInner().unique"
     val outer = FunctionDef(None, "count", Seq(), "ConnectionIO[Long]", outerBody)
 
     Count(inner, outer)
@@ -461,11 +467,11 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val body =
       s"""(sql\"\"\"
-        |  SELECT $selectExpression
-        |  FROM ${table.ref.fullName}
-        |  $where
-        |\"\"\").query[${rowType._2.symbol}]
-        """.stripMargin
+         |  SELECT $selectExpression
+         |  FROM ${table.ref.fullName}
+         |  $where
+         |\"\"\").query[${rowType._2.symbol}]
+         |""".stripMargin
 
     val multiget = FunctionDef(
       Some(privateScope(table)),
@@ -506,13 +512,13 @@ class Analysis(val model: DbModel, val target: Target) {
     val groupBy = s"_.$columnScalaName" ++ (if (groupByInnerValue) ".value" else "")
 
     s"""if ($listParamName.nonEmpty) {
-        |  val distinctValues = $listParamName.distinct
-        |  for {
-        |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
-        |    resultGrouped = resultRaw.groupBy($groupBy)
-        |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
-        |} else List.empty.point[ConnectionIO]
-        |""".stripMargin
+       |  val distinctValues = $listParamName.distinct
+       |  for {
+       |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
+       |    resultGrouped = resultRaw.groupBy($groupBy)
+       |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+       |} else List.empty.point[ConnectionIO]
+       |""".stripMargin
   }
 
   def multigets(table: Table, withFragment: Boolean): Seq[MultiGet] = {
@@ -599,13 +605,12 @@ class Analysis(val model: DbModel, val target: Target) {
          |  SET $innerUpdates
          |  WHERE ${table.primaryKeyColumns.head.sqlName} = $${row.${table.primaryKeyColumns.head.scalaName}}
          |\"\"\".update
-         |
-       """.stripMargin
+         |""".stripMargin
 
     val inner = FunctionDef(Some(privateScope(table)), "updateInner", params, "Update0", innerBody)
 
     val outerBody =
-      s"""updateInner(row).run"""
+      "updateInner(row).run"
 
     val outer = FunctionDef(None, "update", params, "ConnectionIO[Int]", outerBody)
 

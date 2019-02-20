@@ -18,8 +18,12 @@ Generates Doobie database code from sql schema files.
 - `create: (Shape) => Row`
 - `create: (column, column, column...) => Row`
 - `createMany: (List[Shape]) => List[Row]`
-- `all(offset: Long, limit: Long) => List[Row]`
-- `count => List[Row]`
+- `*Void: ... => Unit` variants of the above row creation functions
+- `all: (offset: Long, limit: Long) => List[Row]`
+- `allUnbounded: () => List[Row]`
+- `count: () => List[Row]`
+- `ColumnsFragment: Fragment` (doobie `0.4` and above)
+- `aliasedColumnsFragment: (String) => Fragment` (doobie `0.4` and above)
 
 ##### Tables with a primary key
 
