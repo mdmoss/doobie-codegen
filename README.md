@@ -18,6 +18,7 @@ Generates Doobie database code from sql schema files.
 - `create: (Shape) => Row`
 - `create: (column, column, column...) => Row`
 - `createMany: (List[Shape]) => List[Row]`
+- `*Void: ... => Unit` variants of the above row creation functions
 - `all(offset: Long, limit: Long) => List[Row]`
 - `count => List[Row]`
 
