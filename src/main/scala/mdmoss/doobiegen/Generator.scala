@@ -91,13 +91,19 @@ class Generator(analysis: Analysis) {
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.create(t).fn)).indented()}
             |
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.create(t).void)).indented()}
+            |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.insertMany(t).fn)).indented()}
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).process)).indented()}
             |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).list)).indented()}
             |
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createMany(t).void)).indented()}
+            |
             |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).fn)).indented()}
+            |
+            |  ${checkTarget(StatementTypes.CreateMany, ppFunctionDef(a.createShape(t).void)).indented()}
             |
             |  ${a.get(t, fragmentAvailable).map { g =>
                   checkTarget(StatementTypes.Get, ppFunctionDef(g.inner) + "\n" + ppFunctionDef(g.outer))

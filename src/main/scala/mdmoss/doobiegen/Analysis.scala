@@ -10,9 +10,9 @@ case class Insert(fn: FunctionDef)
 
 case class InsertMany(fn: FunctionDef)
 
-case class Create(fn: FunctionDef)
+case class Create(fn: FunctionDef, void: FunctionDef)
 
-case class CreateMany(process: FunctionDef, list: FunctionDef)
+case class CreateMany(process: FunctionDef, list: FunctionDef, void: FunctionDef)
 
 case class Get(inner: FunctionDef, outer: FunctionDef)
 
@@ -242,7 +242,14 @@ class Analysis(val model: DbModel, val target: Target) {
      """.stripMargin
 
     val fn = FunctionDef(None, "create", in.fn.params, s"ConnectionIO[${rowType._2.symbol}]", body)
-    Create(fn)
+
+    val vBody =
+      s"""
+        |  createVoid(Shape(${in.fn.params.map(f => f.name).mkString(", ")}))
+     """.stripMargin
+
+    val void = FunctionDef(None, "createVoid", in.fn.params, "ConnectionIO[Unit]", vBody)
+    Create(fn, void)
   }
 
   def createMany(table: Table): CreateMany = {
@@ -265,7 +272,13 @@ class Analysis(val model: DbModel, val target: Target) {
        """
 
     val list = FunctionDef(None, "createMany", im.fn.params, s"ConnectionIO[List[${rowType._2.symbol}]]", body)
-    CreateMany(process, list)
+
+    val vBody =
+      s"""
+          insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateMany[List]($insertData).map(_ => ())
+       """
+    val void = FunctionDef(None, "createManyVoid", im.fn.params, "ConnectionIO[Unit]", vBody)
+    CreateMany(process, list, void)
   }
 
   def createShape(table: Table): Create = {
@@ -276,7 +289,12 @@ class Analysis(val model: DbModel, val target: Target) {
       s"""createMany(shape :: Nil).map(_.head)""".stripMargin
 
     val fn = FunctionDef(None, "create", FunctionParam("shape", shape._2, None) :: Nil, s"ConnectionIO[${rowType._2.symbol}]", body)
-    Create(fn)
+
+    val vBody =
+      s"""createManyVoid(shape :: Nil)""".stripMargin
+
+    val void = FunctionDef(None, "createVoid", FunctionParam("shape", shape._2, None) :: Nil, s"ConnectionIO[Unit]", vBody)
+    Create(fn, void)
   }
 
   def get(table: Table, withFragment: Boolean): Option[Get] = pkNewType(table).map { pk =>
