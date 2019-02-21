@@ -5,9 +5,9 @@ import doobie.imports._
 import java.sql.{Date, Timestamp, Time}
 import java.util.UUID
 import java.time.{LocalDate, LocalDateTime}
+import scalaz._, Scalaz._
 
 import doobie.postgres.imports._
-import scalaz._, Scalaz._
 
 object TestForeignPk extends TestForeignPk {
 
@@ -19,14 +19,43 @@ object TestForeignPk extends TestForeignPk {
     def toShape: Shape = Shape.NoDefaults(name.value)
   }
 
+  object Row {
+    val ColumnsFragment: Fragment = fr"name"
+    def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".name"
+  }
+
   case class Shape(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName)
 
   object Shape {
     def NoDefaults(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Shape = Shape(name)
   }
 
-}
+    implicit def TestForeignPkIdComposite: Composite[Name] = {
+      implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]].xmap(
+        (f1) => Name(f1),
+        (a) => a.value
+      )
+    }
 
+    private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestForeignPk.Name]]
+
+    implicit def RowComposite: Composite[Row] = {
+      zippedRowComposite.xmap(
+        t => Row(t),
+        (row) => (row.name)
+      )
+    }
+
+    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]]
+
+    implicit def ShapeComposite: Composite[Shape] = {
+      zippedShapeComposite.xmap(
+        t => Shape(t),
+        (row) => (row.name)
+      )
+    }
+
+}
 trait TestForeignPk {
   import TestForeignPk._
 
@@ -34,12 +63,16 @@ trait TestForeignPk {
     create(Shape(name))
   }
 
-  private[db] def insertMany(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): Update[Shape] = {
+  def createVoid(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): ConnectionIO[Unit] = {
+    createVoid(Shape(name))
+  }
+
+  private[gen] def insertMany(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): Update[Shape] = {
     val sql = "INSERT INTO test_foreign_pk (name) VALUES (?)"
     Update[Shape](sql)
   }
 
-  private[db] def createManyP(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): scalaz.stream.Process[ConnectionIO, Row] = {
+  private[gen] def createManyP(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): scalaz.stream.Process[ConnectionIO, Row] = {
     insertMany(values).updateManyWithGeneratedKeys[Row]("name")(values)
   }
 
@@ -47,39 +80,47 @@ trait TestForeignPk {
     createManyP(values).runLog.map(_.toList)
   }
 
+  def createManyVoid(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): ConnectionIO[Unit] = {
+    insertMany(values).updateMany[List](values).map(_ => ())
+  }
+
   def create(shape: mdmoss.doobiegen.db.gen.TestForeignPk.Shape): ConnectionIO[Row] = {
     createMany(shape :: Nil).map(_.head)
   }
 
-  private[db] def getInner(name: mdmoss.doobiegen.db.gen.TestForeignPk.Name): Query0[Row] = {
-    sql"""
-      SELECT test_foreign_pk.name
+  def createVoid(shape: mdmoss.doobiegen.db.gen.TestForeignPk.Shape): ConnectionIO[Unit] = {
+    createManyVoid(shape :: Nil)
+  }
+
+  private[gen] def getInner(name: mdmoss.doobiegen.db.gen.TestForeignPk.Name): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
       WHERE test_foreign_pk.name = ${name}
-    """.query[Row]
+    """).query[Row]
   }
   def get(name: mdmoss.doobiegen.db.gen.TestForeignPk.Name): ConnectionIO[Row] = {
     getInner(name).unique
   }
 
-  private[db] def findInner(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Query0[Row] = {
-    sql"""
-      SELECT test_foreign_pk.name
+  private[gen] def findInner(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
       WHERE test_foreign_pk.name = ${name}
-    """.query[Row]
+    """).query[Row]
   }
   def find(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): ConnectionIO[Option[Row]] = {
     findInner(name).option
   }
 
-  private[db] def allInner(offset: Long, limit: Long): Query0[Row] = {
-    sql"""
-      SELECT test_foreign_pk.name
+  private[gen] def allInner(offset: Long, limit: Long): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
       OFFSET $offset
       LIMIT $limit
-    """.query[Row]
+    """).query[Row]
   }
 
   def all(offset: Long, limit: Long): ConnectionIO[List[Row]] = {
@@ -90,7 +131,7 @@ trait TestForeignPk {
     allInner(0, 9223372036854775807L).list
   }
 
-  private[db] def countInner(): Query0[Long] = {
+  private[gen] def countInner(): Query0[Long] = {
     sql"""
       SELECT COUNT(*)
       FROM test_foreign_pk
@@ -100,24 +141,34 @@ trait TestForeignPk {
     countInner().unique
   }
 
-  private[db] def multigetInnerBase(name: Option[Seq[mdmoss.doobiegen.db.gen.TestForeignPk.Name]]): Query0[Row] = {
-    sql"""
-      SELECT test_foreign_pk.name
+  private[gen] def multigetInnerBase(name: Option[Seq[mdmoss.doobiegen.db.gen.TestForeignPk.Name]]): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
-      LEFT JOIN unnest(${{name}.toSeq.flatten.map(_.value.value).toArray}::text[]) WITH ORDINALITY t0(val, ord) ON t0.val = test_foreign_pk.name
       WHERE (${name.isEmpty} OR test_foreign_pk.name = ANY(${{name}.toSeq.flatten.map(_.value.value).toArray}))
-      ORDER BY t0.ord
-    """.query[Row]
+    """).query[Row]
   }
 
   def multiget(name: Seq[mdmoss.doobiegen.db.gen.TestForeignPk.Name]): ConnectionIO[List[Row]] = {
-    multigetInnerBase(Some(name)).list
+    if (name.nonEmpty) {
+      val distinctValues = name.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.name)
+      } yield name.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
   }
   def multigetByName(name: Seq[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]): ConnectionIO[List[Row]] = {
-    multigetInnerBase(Some(name.map(Name(_)))).list
+    if (name.nonEmpty) {
+      val distinctValues = name.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues.map(Name(_)))).list
+        resultGrouped = resultRaw.groupBy(_.name.value)
+      } yield name.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
   }
 
-  private[db] def updateInner(row: mdmoss.doobiegen.db.gen.TestForeignPk.Row): Update0 = {
+  private[gen] def updateInner(row: mdmoss.doobiegen.db.gen.TestForeignPk.Row): Update0 = {
     sql"""
       UPDATE test_foreign_pk
       SET name = ${row.name}
