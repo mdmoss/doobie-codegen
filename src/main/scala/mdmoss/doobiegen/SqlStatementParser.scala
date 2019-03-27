@@ -26,7 +26,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
   )
 
   def CreateTable: Rule1[sql.Statement] = rule {
-    ("CREATE TABLE " ~ optional("IF NOT EXISTS ") ~ TableRef ~ '(' ~ OptionalWhitespace ~ zeroOrMore(TableProperty) ~ ");") ~>
+    ("CREATE "  ~ optional("UNLOGGED ") ~ "TABLE " ~ optional("IF NOT EXISTS ") ~ TableRef ~ '(' ~ OptionalWhitespace ~ zeroOrMore(TableProperty) ~ ");") ~>
        { (ref, columns) => sql.CreateTable(ref, columns) }
   }
 
