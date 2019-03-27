@@ -235,6 +235,10 @@ CREATE TABLE test_filtered_multiget(
   column_b BIGINT NOT NULL REFERENCES test_fk_2(id)
 );
 
+CREATE UNLOGGED TABLE test_unlogged_table(
+  id BIGSERIAL PRIMARY KEY
+);
+
 -- the next line is an empty comment, which breaks things
 --
 
