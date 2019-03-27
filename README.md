@@ -60,7 +60,7 @@ lazy val gen = (project in file("doobie-codegen"))
   .settings(
     scalaVersion := "2.11.7",
     resolvers += "Jitpack" at "https://jitpack.io",
-    libraryDependencies += "com.github.mdmoss" %% "doobie-codegen" % "v0.3.0"
+    libraryDependencies += "com.github.mdmoss" %% "doobie-codegen" % "v0.3.1"
   )
 ```
 
