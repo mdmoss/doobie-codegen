@@ -259,13 +259,15 @@ class Analysis(val model: DbModel, val target: Target) {
 
     val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
 
+    val anyParamsNonEmpty = im.fn.params.map(p => s"${p.name}.nonEmpty").mkString(" || ")
+
     val body =
-      s"createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList)"
+      s"if ($anyParamsNonEmpty) createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList) else List.empty.point[ConnectionIO]"
 
     val list = FunctionDef(None, "createMany", im.fn.params, s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
     val vBody =
-      s"insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateMany[List]($insertData).map(_ => ())"
+      s"if ($anyParamsNonEmpty) insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateMany[List]($insertData).map(_ => ()) else ().point[ConnectionIO]"
 
     val void = FunctionDef(None, "createManyVoid", im.fn.params, "ConnectionIO[Unit]", vBody)
     CreateMany(process, list, void)

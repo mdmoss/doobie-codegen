@@ -30,30 +30,30 @@ object TestForeignPk extends TestForeignPk {
     def NoDefaults(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Shape = Shape(name)
   }
 
-    implicit def TestForeignPkIdComposite: Composite[Name] = {
-      implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]].xmap(
-        (f1) => Name(f1),
-        (a) => a.value
-      )
-    }
+  implicit def TestForeignPkIdComposite: Composite[Name] = {
+    implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]].xmap(
+      (f1) => Name(f1),
+      (a) => a.value
+    )
+  }
 
-    private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestForeignPk.Name]]
+  private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestForeignPk.Name]]
 
-    implicit def RowComposite: Composite[Row] = {
-      zippedRowComposite.xmap(
-        t => Row(t),
-        (row) => (row.name)
-      )
-    }
+  implicit def RowComposite: Composite[Row] = {
+    zippedRowComposite.xmap(
+      t => Row(t),
+      (row) => (row.name)
+    )
+  }
 
-    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]]
+  private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]]
 
-    implicit def ShapeComposite: Composite[Shape] = {
-      zippedShapeComposite.xmap(
-        t => Shape(t),
-        (row) => (row.name)
-      )
-    }
+  implicit def ShapeComposite: Composite[Shape] = {
+    zippedShapeComposite.xmap(
+      t => Shape(t),
+      (row) => (row.name)
+    )
+  }
 
 }
 trait TestForeignPk {
@@ -77,11 +77,11 @@ trait TestForeignPk {
   }
 
   def createMany(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): ConnectionIO[List[Row]] = {
-    createManyP(values).runLog.map(_.toList)
+    if (values.nonEmpty) createManyP(values).runLog.map(_.toList) else List.empty.point[ConnectionIO]
   }
 
   def createManyVoid(values: List[mdmoss.doobiegen.db.gen.TestForeignPk.Shape]): ConnectionIO[Unit] = {
-    insertMany(values).updateMany[List](values).map(_ => ())
+    if (values.nonEmpty) insertMany(values).updateMany[List](values).map(_ => ()) else ().point[ConnectionIO]
   }
 
   def create(shape: mdmoss.doobiegen.db.gen.TestForeignPk.Shape): ConnectionIO[Row] = {
