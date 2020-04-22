@@ -43,6 +43,7 @@ object ModelFromDb {
 
       val primaryKeyConstraints = tableConstraints.filter(_.constraintType.contains("PRIMARY KEY")).flatMap(_.constraintName)
       val uniqueConstraints = tableConstraints.filter(_.constraintType.contains("UNIQUE")).flatMap(_.constraintName)
+      val checkConstraints = tableConstraints.filter(_.constraintType.contains("CHECK")).flatMap(_.constraintName)
 
       val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
 
@@ -50,12 +51,14 @@ object ModelFromDb {
         val maybePrimaryKey = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
         val default = if (column.columnDefault.isDefined) Some(sql.Default) else None
         val unique = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(uniqueConstraints.contains))) Some(sql.Unique) else None
+        val check = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(checkConstraints.contains))) Some(sql.Constraint) else None
 
         val columnProperties = Vector(
           nullible,
           maybePrimaryKey,
           default,
-          unique
+          unique,
+          check
         ).flatten
 
         sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
