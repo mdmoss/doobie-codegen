@@ -42,17 +42,20 @@ object ModelFromDb {
       val columnsWithTypes = orderedTableColumns.map { c => (c, getDataType(c)) }
 
       val primaryKeyConstraints = tableConstraints.filter(_.constraintType.contains("PRIMARY KEY")).flatMap(_.constraintName)
+      val uniqueConstraints = tableConstraints.filter(_.constraintType.contains("UNIQUE")).flatMap(_.constraintName)
 
       val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
 
         val nullible = if (column.isNullable.contains("NO")) Some(sql.NotNull) else Some(sql.Null)
         val maybePrimaryKey = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
         val default = if (column.columnDefault.isDefined) Some(sql.Default) else None
+        val unique = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(uniqueConstraints.contains))) Some(sql.Unique) else None
 
         val columnProperties = Vector(
           nullible,
           maybePrimaryKey,
-          default
+          default,
+          unique
         ).flatten
 
         sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
