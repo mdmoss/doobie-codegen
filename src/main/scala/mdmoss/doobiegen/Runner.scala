@@ -6,6 +6,7 @@ import java.nio.file.Paths
 import mdmoss.doobiegen.GenOptions.{GenOption, Ignore}
 import mdmoss.doobiegen.StatementTypes.Statement
 import mdmoss.doobiegen.output.SourceWriter
+import mdmoss.doobiegen.sql.TableRef
 import org.parboiled2.ParseError
 
 import scala.collection.mutable.ListBuffer
@@ -37,7 +38,8 @@ object Runner {
     targetVersion: TargetVersion = TargetVersion.DoobieV023,
     // This is mainly an override for testing
     tableSpecificStatements: Map[String, List[Statement]],
-    generateFromTestDb: Boolean = false
+    generateFromTestDb: Boolean = false,
+    schemas: List[String] = List.empty
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
@@ -135,11 +137,25 @@ object Runner {
     statements.foldLeft(DbModel.empty)(DbModel.update)
   }
 
+  val DefaultExcludeSchemas = List(
+    "information_schema",
+    "pg_catalog"
+  )
+
+  val DefaultExcludeTables = List(
+    "geography_columns",
+    "geometry_columns"
+  )
 
   def run(target: Target) = {
     val model = if (target.generateFromTestDb) ModelFromDb(target) else loadSqlModel(target)
 
-    val filteredModel = FilterIgnoredFields(model, target)
+    val targetSchemas = model.tables.filter { t =>
+      t.ref.schema.exists(target.schemas.contains) || // Explicitly asked for
+        (target.schemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
+    }.filter {t => !DefaultExcludeTables.contains(t.ref.sqlName)}
+
+    val filteredModel = FilterIgnoredFields(model.copy(tables = targetSchemas), target)
 
     val analysis = new Analysis(filteredModel, target)
 
