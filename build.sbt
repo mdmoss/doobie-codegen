@@ -179,3 +179,7 @@ lazy val out_v4_scala_either = (project in file("out_v4_scala_either"))
 lazy val test_v4_scala_either = (project in file("test_v4_scala_either"))
   .settings(settings_v4_scala_either)
   .dependsOn(out_v4_scala_either)
+
+lazy val bootstrap = (project in file("bootstrap"))
+  .settings(commonSettings:_*)
+  .dependsOn(main)

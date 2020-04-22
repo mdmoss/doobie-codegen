@@ -55,7 +55,9 @@ object ModelFromDb {
       sql.Table(ref, properties)
     }
 
-    DbModel(modelTables)
+    val nonEmptyTables = modelTables.filter(_.columns.nonEmpty)
+
+    DbModel(nonEmptyTables)
   }
 
   def getDataType(column: InformationSchemaColumnRow): Option[sql.Type] = {
