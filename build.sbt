@@ -46,7 +46,8 @@ lazy val main = (project in file(""))
   .settings(
     /* Don't attempt to compile the sample code. */
     sourcesInBase := false,
-    libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
+    libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4",
+    libraryDependencies ++= deps_v4_scala_either
   )
   .settings(
     name := "doobie-codegen"

@@ -49,14 +49,15 @@ object TestGen {
 
   val target_v4_scala_either = target_v4.copy(
     src = "out_v4_scala_either/src",
-    targetVersion = TargetVersion.DoobieV04
+    targetVersion = TargetVersion.DoobieV04,
+    generateFromTestDb = true
   )
 
   def main(args: Array[String]) {
-    Runner.run(target_v2_3)
-    Runner.run(target_v2_4)
-    Runner.run(target_v3_0)
-    Runner.run(target_v4)
+//    Runner.run(target_v2_3)
+//    Runner.run(target_v2_4)
+//    Runner.run(target_v3_0)
+//    Runner.run(target_v4)
     Runner.run(target_v4_scala_either)
   }
 }

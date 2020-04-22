@@ -36,7 +36,8 @@ object Runner {
     quiet: Boolean = false,
     targetVersion: TargetVersion = TargetVersion.DoobieV023,
     // This is mainly an override for testing
-    tableSpecificStatements: Map[String, List[Statement]]
+    tableSpecificStatements: Map[String, List[Statement]],
+    generateFromTestDb: Boolean = false
   ) {
 
     def enclosingPackage = `package`.split('.').reverse.headOption
@@ -73,7 +74,7 @@ object Runner {
     `package` = "mdmoss.doobiegen.db"
   )
 
-  def run(target: Target) = {
+  def loadSqlModel(target: Target) = {
     /* We could do something more intelligent here, but this works for now */
     val sql = {
       import scala.sys.process._
@@ -131,7 +132,12 @@ object Runner {
 
     if (statements.length != parsers.length) throw new Throwable("Failed parsing. Exiting.")
 
-    val model = statements.foldLeft(DbModel.empty)(DbModel.update)
+    statements.foldLeft(DbModel.empty)(DbModel.update)
+  }
+
+
+  def run(target: Target) = {
+    val model = if (target.generateFromTestDb) ModelFromDb(target) else loadSqlModel(target)
 
     val filteredModel = FilterIgnoredFields(model, target)
 

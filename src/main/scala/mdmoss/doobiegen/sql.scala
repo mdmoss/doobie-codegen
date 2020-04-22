@@ -2,7 +2,7 @@ package mdmoss.doobiegen
 
 object sql {
 
-  abstract class Type(val underlyingType: String)
+  sealed abstract class Type(val underlyingType: String)
   case object BigInt          extends Type("bigint")
   case object BigSerial       extends Type("bigint")
   case object Boolean         extends Type("boolean")
