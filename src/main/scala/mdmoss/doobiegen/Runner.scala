@@ -153,7 +153,7 @@ object Runner {
     val targetSchemas = model.tables.filter { t =>
       t.ref.schema.exists(target.schemas.contains) || // Explicitly asked for
         (target.schemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
-    }.filter {t => !DefaultExcludeTables.contains(t.ref.sqlName)}
+    }.filter { t => !DefaultExcludeTables.contains(t.ref.sqlName) }
 
     val filteredModel = FilterIgnoredFields(model.copy(tables = targetSchemas), target)
 

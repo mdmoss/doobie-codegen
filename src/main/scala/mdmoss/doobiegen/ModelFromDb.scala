@@ -66,8 +66,8 @@ object ModelFromDb {
             val refConstraint = referentialConstraintsByName.get(constraint.constraintSchema).flatMap(_.get(constraint.constraintName)).get
             val refColumns = keyColumnUsageByConstraint.get(refConstraint.uniqueConstraintSchema).flatMap(_.get(refConstraint.uniqueConstraintName)).get
 
-            println(s"Found a foreign key: ${column.tableSchema}.${column.tableName}.${column.columnName}")
-            refColumns.foreach(println)
+            // println(s"Found a foreign key: ${column.tableSchema}.${column.tableName}.${column.columnName}")
+            // refColumns.foreach(println)
 
             if (refColumns.length == 1) {
               val refColumn = refColumns.head
@@ -102,8 +102,16 @@ object ModelFromDb {
     column.dataType.flatMap { dataType =>
       val parser = new SqlStatementParser(dataType)
       parser.Type.run().toOption match {
-        case t@Some(_) => t
-        case None => println(s"Unknown data type: ${dataType}"); None
+        case st@Some(t) => if (column.columnDefault.exists(_.startsWith("nextval("))) {
+          t match {
+            case sql.BigInt => Some(sql.BigSerial)
+            // case sql.Integer => Some(sql.Serial) TODO define serial
+            case _ => st
+          }
+        } else {
+          st
+        }
+        case None => /* println(s"Unknown data type: ${dataType}"); */ None
       }
     }
   }
