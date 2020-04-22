@@ -15,7 +15,7 @@ object Test2 extends Test2 {
 
   case class Row(
     id: mdmoss.doobiegen.db.s2.gen.Test2.Id,
-    partner: Long
+    partner: mdmoss.doobiegen.db.s1.gen.Test.Id
   ) {
     def toShape: Shape = Shape.NoDefaults(id.value, partner)
   }
@@ -25,10 +25,10 @@ object Test2 extends Test2 {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".id, " ++ Fragment.const0(a) ++ fr".partner"
   }
 
-  case class Shape(id: Long, partner: Long)
+  case class Shape(id: Long, partner: mdmoss.doobiegen.db.s1.gen.Test.Id)
 
   object Shape {
-    def NoDefaults(id: Long, partner: Long): Shape = Shape(id, partner)
+    def NoDefaults(id: Long, partner: mdmoss.doobiegen.db.s1.gen.Test.Id): Shape = Shape(id, partner)
   }
 
     implicit def Test2IdComposite: Composite[Id] = {
@@ -39,7 +39,7 @@ object Test2 extends Test2 {
     }
 
     private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.s2.gen.Test2.Id]]
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.s1.gen.Test.Id]])
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -50,7 +50,7 @@ object Test2 extends Test2 {
     }
 
     private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.s1.gen.Test.Id]])
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -64,11 +64,11 @@ object Test2 extends Test2 {
 trait Test2 {
   import Test2._
 
-  def create(id: Long, partner: Long): ConnectionIO[Row] = {
+  def create(id: Long, partner: mdmoss.doobiegen.db.s1.gen.Test.Id): ConnectionIO[Row] = {
     create(Shape(id, partner))
   }
 
-  def createVoid(id: Long, partner: Long): ConnectionIO[Unit] = {
+  def createVoid(id: Long, partner: mdmoss.doobiegen.db.s1.gen.Test.Id): ConnectionIO[Unit] = {
     createVoid(Shape(id, partner))
   }
 
@@ -146,11 +146,12 @@ trait Test2 {
     countInner().unique
   }
 
-  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.s2.gen.Test2.Id]]): Query0[Row] = {
+  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.s2.gen.Test2.Id]], partner: Option[Seq[mdmoss.doobiegen.db.s1.gen.Test.Id]]): Query0[Row] = {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM s2.test2
       WHERE (${id.isEmpty} OR s2.test2.id = ANY(${{id}.toSeq.flatten.map(_.value).toArray}))
+    AND (${partner.isEmpty} OR s2.test2.partner = ANY(${{partner}.toSeq.flatten.map(_.value).toArray}))
     """).query[Row]
   }
 
@@ -158,10 +159,22 @@ trait Test2 {
     if (id.nonEmpty) {
       val distinctValues = id.distinct
       for {
-        resultRaw    <- multigetInnerBase(Some(distinctValues)).list
+        resultRaw    <- multigetInnerBase(Some(distinctValues), None).list
         resultGrouped = resultRaw.groupBy(_.id)
       } yield id.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
     } else List.empty.point[ConnectionIO]
+  }
+  def multigetByPartner(partner: Seq[mdmoss.doobiegen.db.s1.gen.Test.Id]): ConnectionIO[List[Row]] = {
+    if (partner.nonEmpty) {
+      val distinctValues = partner.distinct
+      for {
+        resultRaw    <- multigetInnerBase(None, Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.partner)
+      } yield partner.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def getByPartner(partner: mdmoss.doobiegen.db.s1.gen.Test.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(None, Some(Seq(partner))).list
   }
 
   private[gen] def updateInner(row: mdmoss.doobiegen.db.s2.gen.Test2.Row): Update0 = {

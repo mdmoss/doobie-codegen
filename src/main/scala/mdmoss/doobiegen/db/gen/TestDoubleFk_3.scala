@@ -11,11 +11,11 @@ import doobie.postgres.imports._
 
 object TestDoubleFk_3 extends TestDoubleFk_3 {
 
-  case class Id(value: Long)
+  case class Id(value: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id)
 
   case class Row(
     id: mdmoss.doobiegen.db.gen.TestDoubleFk_3.Id,
-    notpk: Long
+    notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id
   ) {
     def toShape: Shape = Shape.NoDefaults(id.value, notpk)
   }
@@ -25,21 +25,21 @@ object TestDoubleFk_3 extends TestDoubleFk_3 {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".id, " ++ Fragment.const0(a) ++ fr".notpk"
   }
 
-  case class Shape(id: Long, notpk: Long)
+  case class Shape(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id, notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id)
 
   object Shape {
-    def NoDefaults(id: Long, notpk: Long): Shape = Shape(id, notpk)
+    def NoDefaults(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id, notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): Shape = Shape(id, notpk)
   }
 
     implicit def TestDoubleFk_3IdComposite: Composite[Id] = {
-      Composite.fromMeta(doobie.util.meta.Meta.LongMeta).xmap(
+      implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]].xmap(
         (f1) => Id(f1),
         (a) => a.value
       )
     }
 
     private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_3.Id]]
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]])
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -49,8 +49,8 @@ object TestDoubleFk_3 extends TestDoubleFk_3 {
       )
     }
 
-    private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]]
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]])
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -64,11 +64,11 @@ object TestDoubleFk_3 extends TestDoubleFk_3 {
 trait TestDoubleFk_3 {
   import TestDoubleFk_3._
 
-  def create(id: Long, notpk: Long): ConnectionIO[Row] = {
+  def create(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id, notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[Row] = {
     create(Shape(id, notpk))
   }
 
-  def createVoid(id: Long, notpk: Long): ConnectionIO[Unit] = {
+  def createVoid(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id, notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[Unit] = {
     createVoid(Shape(id, notpk))
   }
 
@@ -108,14 +108,14 @@ trait TestDoubleFk_3 {
     getInner(id).unique
   }
 
-  private[gen] def findInner(id: Long): Query0[Row] = {
+  private[gen] def findInner(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): Query0[Row] = {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_double_fk_3
       WHERE test_double_fk_3.id = ${id}
     """).query[Row]
   }
-  def find(id: Long): ConnectionIO[Option[Row]] = {
+  def find(id: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[Option[Row]] = {
     findInner(id).option
   }
 
@@ -146,11 +146,12 @@ trait TestDoubleFk_3 {
     countInner().unique
   }
 
-  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_3.Id]]): Query0[Row] = {
+  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_3.Id]], notpk: Option[Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]]): Query0[Row] = {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_double_fk_3
-      WHERE (${id.isEmpty} OR test_double_fk_3.id = ANY(${{id}.toSeq.flatten.map(_.value).toArray}))
+      WHERE (${id.isEmpty} OR test_double_fk_3.id = ANY(${{id}.toSeq.flatten.map(_.value.value.value).toArray}))
+    AND (${notpk.isEmpty} OR test_double_fk_3.notpk = ANY(${{notpk}.toSeq.flatten.map(_.value.value).toArray}))
     """).query[Row]
   }
 
@@ -158,10 +159,31 @@ trait TestDoubleFk_3 {
     if (id.nonEmpty) {
       val distinctValues = id.distinct
       for {
-        resultRaw    <- multigetInnerBase(Some(distinctValues)).list
+        resultRaw    <- multigetInnerBase(Some(distinctValues), None).list
         resultGrouped = resultRaw.groupBy(_.id)
       } yield id.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
     } else List.empty.point[ConnectionIO]
+  }
+  def multigetById(id: Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]): ConnectionIO[List[Row]] = {
+    if (id.nonEmpty) {
+      val distinctValues = id.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues.map(Id(_))), None).list
+        resultGrouped = resultRaw.groupBy(_.id.value)
+      } yield id.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def multigetByNotpk(notpk: Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]): ConnectionIO[List[Row]] = {
+    if (notpk.nonEmpty) {
+      val distinctValues = notpk.distinct
+      for {
+        resultRaw    <- multigetInnerBase(None, Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.notpk)
+      } yield notpk.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def getByNotpk(notpk: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(None, Some(Seq(notpk))).list
   }
 
   private[gen] def updateInner(row: mdmoss.doobiegen.db.gen.TestDoubleFk_3.Row): Update0 = {

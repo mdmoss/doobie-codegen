@@ -81,10 +81,16 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def privateScope(table: Table) = "gen"
 
-  def resolve(ref: TableRef): Table = model.tables.filter { t =>
-    t.ref.schema.map(_.toLowerCase) == ref.schema.map(_.toLowerCase) &&
-    t.ref.sqlName.toLowerCase == ref.sqlName.toLowerCase
-  }.head
+  def resolve(ref: TableRef): Table = model.tables.find { t =>
+    equalRef(t.ref, ref)
+  } match {
+    case Some(table) => table
+    case None =>
+      println("Are we missing a table? Couldn't find a ref")
+      println(ref)
+      assert(false)
+      null
+  }
 
   def columnOptions(table: Table, column: Column): List[GenOption] = {
     target.columnOptions.get(table.ref.fullName).flatMap(_.get(column.sqlName)).toList.flatten
@@ -147,7 +153,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
   /* We need this to get around casing issues for now. Todo fix this */
   def equalRef(t1: TableRef, t2: TableRef): Boolean = {
-    t1.schema.map(_.toLowerCase) == t2.schema.map(_.toLowerCase) &&
+    t1.schema.filter(_ != "public").map(_.toLowerCase) == t2.schema.filter(_ != "public").map(_.toLowerCase) &&
     t1.sqlName.toLowerCase == t2.sqlName.toLowerCase
   }
 
@@ -410,7 +416,7 @@ class Analysis(val model: DbModel, val target: Target) {
     field.source.head.references match {
       case None => 1
       case Some(ref) =>
-        val lower = model.tables.find(_.ref == ref.table).get
+        val lower = model.tables.find { t => equalRef(t.ref, ref.table)}.get
         val lowerField = rowNewType(lower)._1.find(_.source.head.sqlName == ref.column)
         lowerField match {
           case None => 2

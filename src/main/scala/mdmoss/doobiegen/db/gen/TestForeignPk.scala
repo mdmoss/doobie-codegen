@@ -11,7 +11,7 @@ import doobie.postgres.imports._
 
 object TestForeignPk extends TestForeignPk {
 
-  case class Name(value: String)
+  case class Name(value: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName)
 
   case class Row(
     name: mdmoss.doobiegen.db.gen.TestForeignPk.Name
@@ -24,14 +24,14 @@ object TestForeignPk extends TestForeignPk {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".name"
   }
 
-  case class Shape(name: String)
+  case class Shape(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName)
 
   object Shape {
-    def NoDefaults(name: String): Shape = Shape(name)
+    def NoDefaults(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Shape = Shape(name)
   }
 
     implicit def TestForeignPkIdComposite: Composite[Name] = {
-      Composite.fromMeta(doobie.util.meta.Meta.StringMeta).xmap(
+      implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]].xmap(
         (f1) => Name(f1),
         (a) => a.value
       )
@@ -46,7 +46,7 @@ object TestForeignPk extends TestForeignPk {
       )
     }
 
-    private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.StringMeta)
+    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]]
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -59,11 +59,11 @@ object TestForeignPk extends TestForeignPk {
 trait TestForeignPk {
   import TestForeignPk._
 
-  def create(name: String): ConnectionIO[Row] = {
+  def create(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): ConnectionIO[Row] = {
     create(Shape(name))
   }
 
-  def createVoid(name: String): ConnectionIO[Unit] = {
+  def createVoid(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): ConnectionIO[Unit] = {
     createVoid(Shape(name))
   }
 
@@ -103,14 +103,14 @@ trait TestForeignPk {
     getInner(name).unique
   }
 
-  private[gen] def findInner(name: String): Query0[Row] = {
+  private[gen] def findInner(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): Query0[Row] = {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
       WHERE test_foreign_pk.name = ${name}
     """).query[Row]
   }
-  def find(name: String): ConnectionIO[Option[Row]] = {
+  def find(name: mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName): ConnectionIO[Option[Row]] = {
     findInner(name).option
   }
 
@@ -145,7 +145,7 @@ trait TestForeignPk {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_foreign_pk
-      WHERE (${name.isEmpty} OR test_foreign_pk.name = ANY(${{name}.toSeq.flatten.map(_.value).toArray}))
+      WHERE (${name.isEmpty} OR test_foreign_pk.name = ANY(${{name}.toSeq.flatten.map(_.value.value).toArray}))
     """).query[Row]
   }
 
@@ -155,6 +155,15 @@ trait TestForeignPk {
       for {
         resultRaw    <- multigetInnerBase(Some(distinctValues)).list
         resultGrouped = resultRaw.groupBy(_.name)
+      } yield name.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def multigetByName(name: Seq[mdmoss.doobiegen.db.gen.TestPkName.SomeComplicatedName]): ConnectionIO[List[Row]] = {
+    if (name.nonEmpty) {
+      val distinctValues = name.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues.map(Name(_)))).list
+        resultGrouped = resultRaw.groupBy(_.name.value)
       } yield name.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
     } else List.empty.point[ConnectionIO]
   }

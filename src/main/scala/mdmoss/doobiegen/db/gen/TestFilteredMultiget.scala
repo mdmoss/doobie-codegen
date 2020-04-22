@@ -12,8 +12,8 @@ import doobie.postgres.imports._
 object TestFilteredMultiget extends TestFilteredMultiget {
 
   case class Row(
-    columnA: Long,
-    columnB: Long
+    columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id,
+    columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id
   ) {
     def toShape: Shape = Shape.NoDefaults(columnA, columnB)
   }
@@ -23,14 +23,14 @@ object TestFilteredMultiget extends TestFilteredMultiget {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".column_a, " ++ Fragment.const0(a) ++ fr".column_b"
   }
 
-  case class Shape(columnA: Long, columnB: Long)
+  case class Shape(columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id, columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id)
 
   object Shape {
-    def NoDefaults(columnA: Long, columnB: Long): Shape = Shape(columnA, columnB)
+    def NoDefaults(columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id, columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id): Shape = Shape(columnA, columnB)
   }
 
-    private val zippedRowComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestFk_1.Id]]
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestFk_2.Id]])
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -40,8 +40,8 @@ object TestFilteredMultiget extends TestFilteredMultiget {
       )
     }
 
-    private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestFk_1.Id]]
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestFk_2.Id]])
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -55,11 +55,11 @@ object TestFilteredMultiget extends TestFilteredMultiget {
 trait TestFilteredMultiget {
   import TestFilteredMultiget._
 
-  def create(columnA: Long, columnB: Long): ConnectionIO[Row] = {
+  def create(columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id, columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id): ConnectionIO[Row] = {
     create(Shape(columnA, columnB))
   }
 
-  def createVoid(columnA: Long, columnB: Long): ConnectionIO[Unit] = {
+  def createVoid(columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id, columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id): ConnectionIO[Unit] = {
     createVoid(Shape(columnA, columnB))
   }
 
@@ -113,6 +113,40 @@ trait TestFilteredMultiget {
   }
   def count(): ConnectionIO[Long] = {
     countInner().unique
+  }
+
+  private[gen] def multigetInnerBase(columnA: Option[Seq[mdmoss.doobiegen.db.gen.TestFk_1.Id]], columnB: Option[Seq[mdmoss.doobiegen.db.gen.TestFk_2.Id]]): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
+      FROM test_filtered_multiget
+      WHERE (${columnA.isEmpty} OR test_filtered_multiget.column_a = ANY(${{columnA}.toSeq.flatten.map(_.value).toArray}))
+    AND (${columnB.isEmpty} OR test_filtered_multiget.column_b = ANY(${{columnB}.toSeq.flatten.map(_.value).toArray}))
+    """).query[Row]
+  }
+
+  def multigetByColumnA(columnA: Seq[mdmoss.doobiegen.db.gen.TestFk_1.Id]): ConnectionIO[List[Row]] = {
+    if (columnA.nonEmpty) {
+      val distinctValues = columnA.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues), None).list
+        resultGrouped = resultRaw.groupBy(_.columnA)
+      } yield columnA.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def multigetByColumnB(columnB: Seq[mdmoss.doobiegen.db.gen.TestFk_2.Id]): ConnectionIO[List[Row]] = {
+    if (columnB.nonEmpty) {
+      val distinctValues = columnB.distinct
+      for {
+        resultRaw    <- multigetInnerBase(None, Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.columnB)
+      } yield columnB.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def getByColumnA(columnA: mdmoss.doobiegen.db.gen.TestFk_1.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(Some(Seq(columnA)), None).list
+  }
+  def getByColumnB(columnB: mdmoss.doobiegen.db.gen.TestFk_2.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(None, Some(Seq(columnB))).list
   }
 
 }

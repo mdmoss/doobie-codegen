@@ -15,7 +15,7 @@ object TestNullibleFkDefault extends TestNullibleFkDefault {
 
   case class Row(
     id: mdmoss.doobiegen.db.gen.TestNullibleFkDefault.Id,
-    fk: Option[Long]
+    fk: Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id]
   ) {
     def toShape: Shape = Shape.NoDefaults(id.value, fk)
   }
@@ -25,10 +25,10 @@ object TestNullibleFkDefault extends TestNullibleFkDefault {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".id, " ++ Fragment.const0(a) ++ fr".fk"
   }
 
-  case class Shape(id: Long, fk: Option[Long] = None)
+  case class Shape(id: Long, fk: Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id] = None)
 
   object Shape {
-    def NoDefaults(id: Long, fk: Option[Long]): Shape = Shape(id, fk)
+    def NoDefaults(id: Long, fk: Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id]): Shape = Shape(id, fk)
   }
 
     implicit def TestNullibleFkDefaultIdComposite: Composite[Id] = {
@@ -39,7 +39,7 @@ object TestNullibleFkDefault extends TestNullibleFkDefault {
     }
 
     private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestNullibleFkDefault.Id]]
-    .zip(Composite.fromMetaOption(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id]]])
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -50,7 +50,7 @@ object TestNullibleFkDefault extends TestNullibleFkDefault {
     }
 
     private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMetaOption(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id]]])
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -64,11 +64,11 @@ object TestNullibleFkDefault extends TestNullibleFkDefault {
 trait TestNullibleFkDefault {
   import TestNullibleFkDefault._
 
-  def create(id: Long, fk: Option[Long] = None): ConnectionIO[Row] = {
+  def create(id: Long, fk: Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id] = None): ConnectionIO[Row] = {
     create(Shape(id, fk))
   }
 
-  def createVoid(id: Long, fk: Option[Long] = None): ConnectionIO[Unit] = {
+  def createVoid(id: Long, fk: Option[mdmoss.doobiegen.db.gen.TestGenOptions.Id] = None): ConnectionIO[Unit] = {
     createVoid(Shape(id, fk))
   }
 

@@ -15,7 +15,7 @@ object TestMutualRefB extends TestMutualRefB {
 
   case class Row(
     id: mdmoss.doobiegen.db.gen.TestMutualRefB.Id,
-    other: Long
+    other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id
   ) {
     def toShape: Shape = Shape.NoDefaults(id.value, other)
   }
@@ -25,10 +25,10 @@ object TestMutualRefB extends TestMutualRefB {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".id, " ++ Fragment.const0(a) ++ fr".other"
   }
 
-  case class Shape(id: Long, other: Long)
+  case class Shape(id: Long, other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id)
 
   object Shape {
-    def NoDefaults(id: Long, other: Long): Shape = Shape(id, other)
+    def NoDefaults(id: Long, other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id): Shape = Shape(id, other)
   }
 
     implicit def TestMutualRefBIdComposite: Composite[Id] = {
@@ -39,7 +39,7 @@ object TestMutualRefB extends TestMutualRefB {
     }
 
     private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestMutualRefB.Id]]
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestMutualRefA.Id]])
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -50,7 +50,7 @@ object TestMutualRefB extends TestMutualRefB {
     }
 
     private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
-    .zip(Composite.fromMeta(doobie.util.meta.Meta.LongMeta))
+    .zip(implicitly[Composite[mdmoss.doobiegen.db.gen.TestMutualRefA.Id]])
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -64,11 +64,11 @@ object TestMutualRefB extends TestMutualRefB {
 trait TestMutualRefB {
   import TestMutualRefB._
 
-  def create(id: Long, other: Long): ConnectionIO[Row] = {
+  def create(id: Long, other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id): ConnectionIO[Row] = {
     create(Shape(id, other))
   }
 
-  def createVoid(id: Long, other: Long): ConnectionIO[Unit] = {
+  def createVoid(id: Long, other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id): ConnectionIO[Unit] = {
     createVoid(Shape(id, other))
   }
 
@@ -146,11 +146,12 @@ trait TestMutualRefB {
     countInner().unique
   }
 
-  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.gen.TestMutualRefB.Id]]): Query0[Row] = {
+  private[gen] def multigetInnerBase(id: Option[Seq[mdmoss.doobiegen.db.gen.TestMutualRefB.Id]], other: Option[Seq[mdmoss.doobiegen.db.gen.TestMutualRefA.Id]]): Query0[Row] = {
     (sql"""
       SELECT """ ++ Row.ColumnsFragment ++ sql"""
       FROM test_mutual_ref_b
       WHERE (${id.isEmpty} OR test_mutual_ref_b.id = ANY(${{id}.toSeq.flatten.map(_.value).toArray}))
+    AND (${other.isEmpty} OR test_mutual_ref_b.other = ANY(${{other}.toSeq.flatten.map(_.value).toArray}))
     """).query[Row]
   }
 
@@ -158,10 +159,22 @@ trait TestMutualRefB {
     if (id.nonEmpty) {
       val distinctValues = id.distinct
       for {
-        resultRaw    <- multigetInnerBase(Some(distinctValues)).list
+        resultRaw    <- multigetInnerBase(Some(distinctValues), None).list
         resultGrouped = resultRaw.groupBy(_.id)
       } yield id.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
     } else List.empty.point[ConnectionIO]
+  }
+  def multigetByOther(other: Seq[mdmoss.doobiegen.db.gen.TestMutualRefA.Id]): ConnectionIO[List[Row]] = {
+    if (other.nonEmpty) {
+      val distinctValues = other.distinct
+      for {
+        resultRaw    <- multigetInnerBase(None, Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.other)
+      } yield other.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def getByOther(other: mdmoss.doobiegen.db.gen.TestMutualRefA.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(None, Some(Seq(other))).list
   }
 
   private[gen] def updateInner(row: mdmoss.doobiegen.db.gen.TestMutualRefB.Row): Update0 = {

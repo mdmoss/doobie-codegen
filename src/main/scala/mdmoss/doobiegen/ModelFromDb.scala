@@ -23,11 +23,16 @@ object ModelFromDb {
     columns <- db.information_schema.gen.Columns.allUnbounded()
     tableConstraints <- db.information_schema.gen.TableConstraints.allUnbounded()
     keyColumnUsage <- db.information_schema.gen.KeyColumnUsage.allUnbounded()
+    referentialConstraints <- db.information_schema.gen.ReferentialConstraints.allUnbounded()
 
   } yield {
     val columnsMap = columns.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
     val tableConstraintsMap = tableConstraints.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
     val keyColumnUsageMap = keyColumnUsage.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
+
+    val tableConstraintsByName = tableConstraints.groupBy(_.constraintSchema).mapValues(_.groupBy(_.constraintName).mapValues { c => assert(c.length == 1); c.head })
+    val referentialConstraintsByName = referentialConstraints.groupBy(_.constraintSchema).mapValues(_.groupBy(_.constraintName).mapValues { c => assert(c.length == 1); c.head })
+    val keyColumnUsageByConstraint = keyColumnUsage.groupBy(_.constraintSchema).mapValues(_.groupBy(_.constraintName))
 
     val modelTables = tables.map { table =>
       val ref = sql.TableRef(table.tableSchema.filter(_ != "public"), table.tableName.getOrElse("?"))
@@ -44,6 +49,7 @@ object ModelFromDb {
       val primaryKeyConstraints = tableConstraints.filter(_.constraintType.contains("PRIMARY KEY")).flatMap(_.constraintName)
       val uniqueConstraints = tableConstraints.filter(_.constraintType.contains("UNIQUE")).flatMap(_.constraintName)
       val checkConstraints = tableConstraints.filter(_.constraintType.contains("CHECK")).flatMap(_.constraintName)
+      val foreignKeyConstraints = tableConstraints.filter(_.constraintType.contains("FOREIGN KEY"))
 
       val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
 
@@ -53,13 +59,33 @@ object ModelFromDb {
         val unique = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(uniqueConstraints.contains))) Some(sql.Unique) else None
         val check = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(checkConstraints.contains))) Some(sql.Constraint) else None
 
+        val foreignKeys = tableKeyColumnUsage
+          .filter(k => k.columnName == column.columnName)
+          .flatMap { c => foreignKeyConstraints.find(_.constraintName == c.constraintName) }
+          .flatMap { constraint =>
+            val refConstraint = referentialConstraintsByName.get(constraint.constraintSchema).flatMap(_.get(constraint.constraintName)).get
+            val refColumns = keyColumnUsageByConstraint.get(refConstraint.uniqueConstraintSchema).flatMap(_.get(refConstraint.uniqueConstraintName)).get
+
+            println(s"Found a foreign key: ${column.tableSchema}.${column.tableName}.${column.columnName}")
+            refColumns.foreach(println)
+
+            if (refColumns.length == 1) {
+              val refColumn = refColumns.head
+              Some(sql.References(sql.TableRef(refColumn.tableSchema, refColumn.tableName.getOrElse("?")), refColumn.columnName.getOrElse("?")))
+
+            } else {
+              // At this point, we only support singular foreign keys?
+              None
+            }
+          }
+
         val columnProperties = Vector(
           nullible,
           maybePrimaryKey,
           default,
           unique,
           check
-        ).flatten
+        ).flatten ++ foreignKeys
 
         sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
       }

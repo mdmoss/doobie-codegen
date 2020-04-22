@@ -12,7 +12,7 @@ import doobie.postgres.imports._
 object ReferenceChange extends ReferenceChange {
 
   case class Row(
-    referenceColumn: Long
+    referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id
   ) {
     def toShape: Shape = Shape.NoDefaults(referenceColumn)
   }
@@ -22,13 +22,13 @@ object ReferenceChange extends ReferenceChange {
     def aliasedColumnsFragment(a: String): Fragment = Fragment.const0(a) ++ fr".reference_column"
   }
 
-  case class Shape(referenceColumn: Long)
+  case class Shape(referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id)
 
   object Shape {
-    def NoDefaults(referenceColumn: Long): Shape = Shape(referenceColumn)
+    def NoDefaults(referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): Shape = Shape(referenceColumn)
   }
 
-    private val zippedRowComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
+    private val zippedRowComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]]
 
     implicit def RowComposite: Composite[Row] = {
       zippedRowComposite.xmap(
@@ -37,7 +37,7 @@ object ReferenceChange extends ReferenceChange {
       )
     }
 
-    private val zippedShapeComposite = Composite.fromMeta(doobie.util.meta.Meta.LongMeta)
+    private val zippedShapeComposite = implicitly[Composite[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]]
 
     implicit def ShapeComposite: Composite[Shape] = {
       zippedShapeComposite.xmap(
@@ -50,11 +50,11 @@ object ReferenceChange extends ReferenceChange {
 trait ReferenceChange {
   import ReferenceChange._
 
-  def create(referenceColumn: Long): ConnectionIO[Row] = {
+  def create(referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[Row] = {
     create(Shape(referenceColumn))
   }
 
-  def createVoid(referenceColumn: Long): ConnectionIO[Unit] = {
+  def createVoid(referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[Unit] = {
     createVoid(Shape(referenceColumn))
   }
 
@@ -108,6 +108,27 @@ trait ReferenceChange {
   }
   def count(): ConnectionIO[Long] = {
     countInner().unique
+  }
+
+  private[gen] def multigetInnerBase(referenceColumn: Option[Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]]): Query0[Row] = {
+    (sql"""
+      SELECT """ ++ Row.ColumnsFragment ++ sql"""
+      FROM reference_change
+      WHERE (${referenceColumn.isEmpty} OR reference_change.reference_column = ANY(${{referenceColumn}.toSeq.flatten.map(_.value.value).toArray}))
+    """).query[Row]
+  }
+
+  def multigetByReferenceColumn(referenceColumn: Seq[mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id]): ConnectionIO[List[Row]] = {
+    if (referenceColumn.nonEmpty) {
+      val distinctValues = referenceColumn.distinct
+      for {
+        resultRaw    <- multigetInnerBase(Some(distinctValues)).list
+        resultGrouped = resultRaw.groupBy(_.referenceColumn)
+      } yield referenceColumn.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
+    } else List.empty.point[ConnectionIO]
+  }
+  def getByReferenceColumn(referenceColumn: mdmoss.doobiegen.db.gen.TestDoubleFk_2.Id): ConnectionIO[List[Row]] = {
+    multigetInnerBase(Some(Seq(referenceColumn))).list
   }
 
 }
