@@ -239,6 +239,22 @@ CREATE UNLOGGED TABLE test_unlogged_table(
   id BIGSERIAL PRIMARY KEY
 );
 
+CREATE TABLE test_composite_primary_key_left(
+  col_left BIGSERIAL PRIMARY KEY
+);
+
+CREATE TABLE test_composite_primary_key_right(
+  col_right BIGSERIAL PRIMARY KEY
+);
+
+
+CREATE TABLE test_composite_primary_key(
+  col_left_fk BIGINT REFERENCES test_composite_primary_key_left(col_left),
+  col_right_fk BIGINT REFERENCES test_composite_primary_key_right(col_right),
+  PRIMARY KEY (col_left_fk, col_right_fk)
+);
+
+
 -- the next line is an empty comment, which breaks things
 --
 

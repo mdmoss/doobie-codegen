@@ -23,12 +23,12 @@ object sql {
   sealed trait TableProperty
 
   case class Column(sqlName: String, sqlType: Type, properties: Seq[ColumnProperty]) extends TableProperty {
-    def isNullible = properties.contains(Null) || (!properties.contains(NotNull) && !properties.contains(PrimaryKey))
+    def isNullible = properties.contains(Null) || (!properties.contains(NotNull) && !properties.contains(SingularPrimaryKey))
     def references: Option[sql.References] = properties.flatten {
       case r @ References(_, _) => Some(r)
       case _ => None
     }.headOption
-    def isPrimaryKey = properties.contains(PrimaryKey)
+    def isSingularPrimaryKey = properties.contains(SingularPrimaryKey)
     def sqlNameInTable(table: Table) = s"${table.ref.fullName}.$sqlName"
   }
 
@@ -69,14 +69,15 @@ object sql {
       case _ => None
     }.toList
 
-    val primaryKeyColumns = columns.filter(_.isPrimaryKey)
-    val nonPrimaryKeyColumns = columns.filterNot(_.isPrimaryKey)
+    val singularPrimaryKeyColumns = columns.filter(_.isSingularPrimaryKey)
+    val nonSingularPrimaryKeyColumns = columns.filterNot(_.isSingularPrimaryKey)
   }
 
   sealed trait ColumnProperty
   case object Null                                       extends ColumnProperty
   case object NotNull                                    extends ColumnProperty
-  case object PrimaryKey                                 extends ColumnProperty
+  /** Column is the only primary key for the table */
+  case object SingularPrimaryKey                         extends ColumnProperty
   case object Default                                    extends ColumnProperty
   case class References(table: TableRef, column: String) extends ColumnProperty
   case object Unique                                     extends ColumnProperty

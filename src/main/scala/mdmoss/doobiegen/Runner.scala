@@ -155,6 +155,14 @@ object Runner {
         (target.schemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
     }.filter { t => !DefaultExcludeTables.contains(t.ref.sqlName) }
 
+    if (!target.quiet) {
+      targetSchemas.foreach { s =>
+        println("========================================================================")
+        println(s.ref)
+        s.properties.foreach(println)
+      }
+    }
+
     val filteredModel = FilterIgnoredFields(model.copy(tables = targetSchemas), target)
 
     val analysis = new Analysis(filteredModel, target)

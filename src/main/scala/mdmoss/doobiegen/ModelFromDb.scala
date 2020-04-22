@@ -44,17 +44,34 @@ object ModelFromDb {
       val tableConstraints = tableConstraintsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
       val tableKeyColumnUsage = keyColumnUsageMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
 
-      val columnsWithTypes = orderedTableColumns.map { c => (c, getDataType(c)) }
+      val columnsWithTypes = orderedTableColumns.map { c => (c, getDataType(c)) }.collect { case (c, Some(dt)) => (c, dt) }
 
       val primaryKeyConstraints = tableConstraints.filter(_.constraintType.contains("PRIMARY KEY")).flatMap(_.constraintName)
       val uniqueConstraints = tableConstraints.filter(_.constraintType.contains("UNIQUE")).flatMap(_.constraintName)
       val checkConstraints = tableConstraints.filter(_.constraintType.contains("CHECK")).flatMap(_.constraintName)
       val foreignKeyConstraints = tableConstraints.filter(_.constraintType.contains("FOREIGN KEY"))
 
-      val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
+      /** Returns true if `column` is part of a singular or composite primary key. */
+      def isPrimaryKey(column: db.information_schema.gen.Columns.Row): Boolean = {
+        tableKeyColumnUsage.exists { k =>
+          k.columnName == column.columnName &&
+            k.constraintName.exists(primaryKeyConstraints.contains)
+        }
+      }
+
+      val primaryKeyColumns = columnsWithTypes.filter { case (column, _) =>
+        isPrimaryKey(column)
+      }
+
+      val maybeCompositeForeignKey = primaryKeyColumns match {
+        case cs if cs.length > 1 => Some(sql.CompositePrimaryKey(cs.map(_._1.columnName.get)))
+        case _ => None
+      }
+
+      val columns = columnsWithTypes.map { case (column, dataType) =>
 
         val nullible = if (column.isNullable.contains("NO")) Some(sql.NotNull) else Some(sql.Null)
-        val maybePrimaryKey = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
+        val maybeSingularPrimaryKey = if (maybeCompositeForeignKey.isEmpty && isPrimaryKey(column)) Some(sql.SingularPrimaryKey) else None
         val default = if (column.columnDefault.isDefined) Some(sql.Default) else None
         val unique = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(uniqueConstraints.contains))) Some(sql.Unique) else None
         val check = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(checkConstraints.contains))) Some(sql.Constraint) else None
@@ -81,7 +98,7 @@ object ModelFromDb {
 
         val columnProperties = Vector(
           nullible,
-          maybePrimaryKey,
+          maybeSingularPrimaryKey,
           default,
           unique,
           check
@@ -90,7 +107,7 @@ object ModelFromDb {
         sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
       }
 
-      sql.Table(ref, properties)
+      sql.Table(ref, columns ++ maybeCompositeForeignKey.toList)
     }
 
     val nonEmptyTables = modelTables.filter(_.columns.nonEmpty)

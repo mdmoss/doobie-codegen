@@ -360,7 +360,7 @@ class Generator(analysis: Analysis) {
     val shape = a.rowShape(table)
 
     val shapeFields = shape._1.map { field =>
-      if (field.source.head.isPrimaryKey) field.scalaName + ".value"
+      if (field.source.head.isSingularPrimaryKey) field.scalaName + ".value"
       else field.scalaName
     }
 

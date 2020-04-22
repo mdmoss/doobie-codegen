@@ -90,7 +90,7 @@ class SqlStatementParser(val input: ParserInput) extends Parser {
   def ColumnProperty: Rule1[sql.ColumnProperty] = rule (
     ignoreCase("null") ~ push(sql.Null)
     | ignoreCase("not null") ~ push(sql.NotNull)
-    | ignoreCase("primary key") ~ push(sql.PrimaryKey)
+    | ignoreCase("primary key") ~ push(sql.SingularPrimaryKey)
       /* Our handling of default is getting messier, but it should be replacable all at once later */
     | ignoreCase("default") ~ " " ~ optional('(') ~ oneOrMore(defaultChars) ~ optional(')') ~ push(sql.Default)
     | ignoreCase("references") ~ " " ~ TableRef ~ "(" ~ ValidIdentifier ~ ")" ~> ((t: TableRef, column: String) => References(t, column))
