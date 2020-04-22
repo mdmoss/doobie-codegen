@@ -26,8 +26,6 @@ object ModelFromDb {
 
   } yield {
     val columnsMap = columns.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
-
-    val keyColumnsMap = keyColumnUsage.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
     val tableConstraintsMap = tableConstraints.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
     val keyColumnUsageMap = keyColumnUsage.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
 
@@ -39,7 +37,7 @@ object ModelFromDb {
       val orderedTableColumns = tableColumns.sortBy(_.ordinalPosition.getOrElse(0))
 
       val tableConstraints = tableConstraintsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
-      val tableKeyColumns = keyColumnsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
+      val tableKeyColumnUsage = keyColumnUsageMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
 
       val columnsWithTypes = orderedTableColumns.map { c => (c, getDataType(c)) }
 
@@ -48,11 +46,13 @@ object ModelFromDb {
       val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
 
         val nullible = if (column.isNullable.contains("NO")) Some(sql.NotNull) else Some(sql.Null)
-        val maybePrimaryKey = if (tableKeyColumns.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
+        val maybePrimaryKey = if (tableKeyColumnUsage.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
+        val default = if (column.columnDefault.isDefined) Some(sql.Default) else None
 
         val columnProperties = Vector(
           nullible,
-          maybePrimaryKey
+          maybePrimaryKey,
+          default
         ).flatten
 
         sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
