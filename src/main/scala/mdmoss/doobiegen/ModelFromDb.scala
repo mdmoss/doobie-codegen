@@ -19,37 +19,43 @@ object ModelFromDb {
   }
 
   def getModel: ConnectionIO[DbModel] = for {
-    tables <- readTables.vector
-    _ = println(s"Found ${tables.length} tables in information_schema.tables")
-    // _ = tables.foreach(println)
-
-    columns <- readColumns.vector
-    _  = println(s"Found ${columns.length} columns in information_schema.tables")
-    // _ = columns.foreach(println)
-
-
-
-
-
-
+    tables <- db.information_schema.gen.Tables.allUnbounded()
+    columns <- db.information_schema.gen.Columns.allUnbounded()
+    tableConstraints <- db.information_schema.gen.TableConstraints.allUnbounded()
+    keyColumnUsage <- db.information_schema.gen.KeyColumnUsage.allUnbounded()
 
   } yield {
-    val columnsMap = columns.groupBy(_.table_schema).mapValues(_.groupBy(_.table_name))
+    val columnsMap = columns.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
+
+    val keyColumnsMap = keyColumnUsage.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
+    val tableConstraintsMap = tableConstraints.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
+    val keyColumnUsageMap = keyColumnUsage.groupBy(_.tableSchema).mapValues(_.groupBy(_.tableName))
 
     val modelTables = tables.map { table =>
-      val ref = sql.TableRef(Some(table.table_schema).filter(_ != "public"), table.table_name)
-      val tableColumns = columnsMap.get(table.table_schema).flatMap(_.get(table.table_name)).getOrElse(Vector.empty)
-      val columnsWithTypes = tableColumns.map { c => (c, getDataType(c)) }
+      val ref = sql.TableRef(table.tableSchema.filter(_ != "public"), table.tableName.getOrElse("?"))
+
+      val tableColumns = columnsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
+
+      val orderedTableColumns = tableColumns.sortBy(_.ordinalPosition.getOrElse(0))
+
+      val tableConstraints = tableConstraintsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
+      val tableKeyColumns = keyColumnsMap.get(table.tableSchema).flatMap(_.get(table.tableName)).getOrElse(List.empty)
+
+      val columnsWithTypes = orderedTableColumns.map { c => (c, getDataType(c)) }
+
+      val primaryKeyConstraints = tableConstraints.filter(_.constraintType.contains("PRIMARY KEY")).flatMap(_.constraintName)
 
       val properties = columnsWithTypes.collect { case (column, Some(dataType)) =>
 
-        val nullible = if (column.is_nullable) sql.Null else sql.NotNull
+        val nullible = if (column.isNullable.contains("NO")) Some(sql.NotNull) else Some(sql.Null)
+        val maybePrimaryKey = if (tableKeyColumns.exists(k => k.columnName == column.columnName && k.constraintName.exists(primaryKeyConstraints.contains))) Some(sql.PrimaryKey) else None
 
         val columnProperties = Vector(
-          nullible
-        )
+          nullible,
+          maybePrimaryKey
+        ).flatten
 
-        sql.Column(column.column_name, dataType, columnProperties)
+        sql.Column(column.columnName.getOrElse("?"), dataType, columnProperties)
       }
 
       sql.Table(ref, properties)
@@ -60,29 +66,13 @@ object ModelFromDb {
     DbModel(nonEmptyTables)
   }
 
-  def getDataType(column: InformationSchemaColumnRow): Option[sql.Type] = {
-    val parser = new SqlStatementParser(column.data_type)
-    parser.Type.run().toOption match {
-      case t@Some(_) => t
-      case None => println(column.data_type); None
+  def getDataType(column: db.information_schema.gen.Columns.Row): Option[sql.Type] = {
+    column.dataType.flatMap { dataType =>
+      val parser = new SqlStatementParser(dataType)
+      parser.Type.run().toOption match {
+        case t@Some(_) => t
+        case None => println(s"Unknown data type: ${dataType}"); None
+      }
     }
-  }
-
-
-  case class InformationSchemaTableRow(table_schema: String, table_name: String, table_type: String)
-  def readTables: Query0[InformationSchemaTableRow] = {
-    sql"""
-      SELECT table_schema, table_name, table_type
-      FROM information_schema.tables
-      """.query[InformationSchemaTableRow]
-  }
-
-  case class InformationSchemaColumnRow(table_schema: String, table_name: String, column_name: String, data_type: String, numeric_precision: Option[Int], is_nullable: Boolean)
-  def readColumns: Query0[InformationSchemaColumnRow] = {
-    sql"""
-      SELECT table_schema, table_name, column_name, data_type, numeric_precision, is_nullable
-      FROM information_schema.columns
-      WHERE (table_schema = 'information_schema' OR table_schema = 'pg_catalog')
-      """.query[InformationSchemaColumnRow]
   }
 }
