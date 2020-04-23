@@ -259,3 +259,4 @@ CREATE TABLE test_composite_primary_key(
 --
 
 -- comments at the end seem to break things sometimes
+

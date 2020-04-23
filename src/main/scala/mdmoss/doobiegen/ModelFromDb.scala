@@ -2,19 +2,19 @@ package mdmoss.doobiegen
 
 import doobie.imports._
 import doobie.postgres.imports._
-import mdmoss.doobiegen.Runner.TestDatabase
+import mdmoss.doobiegen.Runner.Database
 import scalaz._
-import Scalaz._
-import org.parboiled2.ParseError
 import scalaz.concurrent.Task
 
 object ModelFromDb {
+  def apply(target: Runner.Target, database: Database): DbModel = {
+    new ModelFromDb(target).run(database)
+  }
+}
 
-  def apply(target: Runner.Target): DbModel = {
-    val xa = target.testDb match {
-      case TestDatabase(driver, url, username, password) => DriverManagerTransactor[Task](driver, url, username, password)
-      case _ => assert(false); null
-    }
+class ModelFromDb(target: Runner.Target) {
+  def run(database: Database): DbModel = {
+    val xa = DriverManagerTransactor[Task](database.driver, database.url, database.username, database.password)
     xa.trans(implicitly [Monad[Task]])(getModel).unsafePerformSync
   }
 
@@ -128,7 +128,11 @@ object ModelFromDb {
         } else {
           st
         }
-        case None => /* println(s"Unknown data type: ${dataType}"); */ None
+        case None =>
+          if (!target.quiet) {
+            println(s"Unknown data type: ${dataType}");
+          }
+          None
       }
     }
   }

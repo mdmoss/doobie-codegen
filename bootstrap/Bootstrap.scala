@@ -19,8 +19,14 @@ object Bootstrap {
     statements = None,
     columnOptions = Map(),
     tableSpecificStatements = Map(),
-    generateFromTestDb = true,
-    quiet = false
+    generateFromTestDb = Some(Runner.Database(
+      "org.postgresql.Driver",
+      "jdbc:postgresql:gen",
+      "test",
+      "test"
+    )),
+    quiet = false,
+    filterSchemas = List("information_schema")
   )
 
   def main(args: Array[String]) {

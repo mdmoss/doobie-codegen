@@ -18,6 +18,8 @@ object Runner {
   case class TestDatabase(driver: String, url: String, username: String, password: String) extends TestDBSource
   case class InsertString(source: String) extends TestDBSource
 
+  case class Database(driver: String, url: String, username: String, password: String)
+
   sealed trait TargetVersion
 
   object TargetVersion {
@@ -32,36 +34,16 @@ object Runner {
     testDb: TestDBSource,
     src: String,
     `package`: String,
-    statements: Option[Map[String, List[Statement]]],
-    columnOptions: Map[String, Map[String, List[GenOption]]],
+    statements: Option[Map[String, List[Statement]]] = None,
+    columnOptions: Map[String, Map[String, List[GenOption]]] = Map(),
     quiet: Boolean = false,
     targetVersion: TargetVersion = TargetVersion.DoobieV023,
     // This is mainly an override for testing
-    tableSpecificStatements: Map[String, List[Statement]],
-    generateFromTestDb: Boolean = false,
-    schemas: List[String] = List.empty
+    tableSpecificStatements: Map[String, List[Statement]] = Map.empty,
+    generateFromTestDb: Option[Database] = None,
+    filterSchemas: List[String] = List.empty
   ) {
-
     def enclosingPackage = `package`.split('.').reverse.headOption
-  }
-
-  object Target {
-    def apply(
-      schemaDir: String,
-      testDb: TestDatabase,
-      src: String,
-      `package`: String
-    ): Target = Target(
-      schemaDir = schemaDir,
-      testDb = testDb,
-      src = src,
-      `package` = `package`,
-      statements = None,
-      columnOptions = Map(),
-      quiet = false,
-      targetVersion = TargetVersion.DoobieV023,
-      tableSpecificStatements = Map.empty[String, List[Statement]]
-    )
   }
 
   val Default = Target(
@@ -148,11 +130,14 @@ object Runner {
   )
 
   def run(target: Target) = {
-    val model = if (target.generateFromTestDb) ModelFromDb(target) else loadSqlModel(target)
+    val model = target.generateFromTestDb match {
+      case Some(db) => ModelFromDb(target, db)
+      case None => loadSqlModel(target)
+    }
 
     val targetSchemas = model.tables.filter { t =>
-      t.ref.schema.exists(target.schemas.contains) || // Explicitly asked for
-        (target.schemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
+      t.ref.schema.exists(target.filterSchemas.contains) || // Explicitly asked for
+        (target.filterSchemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
     }.filter { t => !DefaultExcludeTables.contains(t.ref.sqlName) }
 
     if (!target.quiet) {

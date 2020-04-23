@@ -6,8 +6,8 @@ import GenOptions._
 object TestGen {
 
   val target_v2_3 = Target(
-    schemaDir = "sql/",
-    TestDatabase(
+    schemaDir = "",
+    testDb = TestDatabase(
       "org.postgresql.Driver",
       "jdbc:postgresql:gen",
       "test",
@@ -30,7 +30,12 @@ object TestGen {
     tableSpecificStatements = Map(
       "test_filtered_multiget" -> (StatementTypes.RefinedMultiget(excludeColumns = Some("column_b" :: Nil)) :: Nil)
     ),
-    generateFromTestDb = true
+    generateFromTestDb = Some(Runner.Database(
+      "org.postgresql.Driver",
+      "jdbc:postgresql:gen",
+      "test",
+      "test"
+    ))
   )
 
   val target_v2_4 = target_v2_3.copy(
