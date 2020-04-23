@@ -26,7 +26,15 @@ object Bootstrap {
       "test"
     )),
     quiet = false,
-    filterSchemas = List("information_schema")
+    filterSchemasAndTables = Map(
+      "information_schema" -> List(
+        "tables",
+        "columns",
+        "table_constraints",
+        "key_column_usage",
+        "referential_constraints"
+      )
+    )
   )
 
   def main(args: Array[String]) {

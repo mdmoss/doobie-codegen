@@ -41,7 +41,13 @@ object Runner {
     // This is mainly an override for testing
     tableSpecificStatements: Map[String, List[Statement]] = Map.empty,
     generateFromTestDb: Option[Database] = None,
-    filterSchemas: List[String] = List.empty
+
+    /**
+      * Filter output to particular schemas or tables.
+      * An empty map will generate for all schemas (except information_schema and pg_catalog)
+      * An empty list will generate all tables within a schema.
+      */
+    filterSchemasAndTables: Map[String, List[String]] = Map()
   ) {
     def enclosingPackage = `package`.split('.').reverse.headOption
   }
@@ -129,16 +135,25 @@ object Runner {
     "geometry_columns"
   )
 
+  def isAllowedByFilter(target: Target, ref: TableRef): Boolean = {
+    val allowedForSchema = target.filterSchemasAndTables.get(ref.schema.getOrElse("public"))
+
+    val schemaImplicitlyAllowed = target.filterSchemasAndTables.isEmpty && !ref.schema.exists(DefaultExcludeSchemas.contains)
+    val schemaExplicitlyAllowed = allowedForSchema.isDefined
+
+    val tableImplicitlyAllowed = allowedForSchema.forall(_.isEmpty) && DefaultExcludeTables.contains(ref.sqlName)
+    val tableExplicitlyAllowed = allowedForSchema.exists(_.contains(ref.sqlName))
+
+    (schemaImplicitlyAllowed || schemaExplicitlyAllowed) && (tableImplicitlyAllowed || tableExplicitlyAllowed)
+  }
+
   def run(target: Target) = {
     val model = target.generateFromTestDb match {
       case Some(db) => ModelFromDb(target, db)
       case None => loadSqlModel(target)
     }
 
-    val targetSchemas = model.tables.filter { t =>
-      t.ref.schema.exists(target.filterSchemas.contains) || // Explicitly asked for
-        (target.filterSchemas.isEmpty && !t.ref.schema.exists(DefaultExcludeSchemas.contains)) // Nothing asked for, not excluded
-    }.filter { t => !DefaultExcludeTables.contains(t.ref.sqlName) }
+    val targetSchemas = model.tables.filter(t => isAllowedByFilter(target, t.ref))
 
     if (!target.quiet) {
       targetSchemas.foreach { s =>
