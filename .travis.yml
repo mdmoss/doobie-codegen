@@ -1,4 +1,4 @@
-dist: trusty
+dist: bionic
 language: scala
 scala:
     2.11.8
