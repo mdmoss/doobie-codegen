@@ -132,7 +132,9 @@ object Runner {
 
   val DefaultExcludeTables = List(
     "geography_columns",
-    "geometry_columns"
+    "geometry_columns",
+    "raster_columns",
+    "raster_overviews"
   )
 
   def isAllowedByFilter(target: Target, ref: TableRef): Boolean = {
