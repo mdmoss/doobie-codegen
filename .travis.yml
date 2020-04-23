@@ -1,7 +1,7 @@
 dist: bionic
 language: scala
 scala:
-    2.11.8
+    2.11.12
 
 sudo: required
 
@@ -19,7 +19,7 @@ addons:
     - postgresql-11-postgis-2.5
     - postgresql-11-postgis-2.5-scripts
   postgresql: "11"
-jdk: oraclejdk9
+jdk: oraclejdk11
 
 before_script:
   - sudo sh -c 'echo "port = 5432" >> /etc/postgresql/11/main/postgresql.conf'
