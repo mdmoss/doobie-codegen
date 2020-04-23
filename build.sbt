@@ -1,6 +1,6 @@
 val commonSettings = Seq(
   organization := "mdmoss",
-  scalaVersion := "2.11.7",
+  scalaVersion := "2.11.12",
   scalacOptions ++= Seq("-deprecation", "-feature"),
   scalacOptions in Test ++= Seq("-Yrangepos")
 )
@@ -73,7 +73,7 @@ lazy val deps_v2_3 = Seq(
 lazy val settings_v2_3 = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v2_3,
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.12"
 )
 
 lazy val out_v2_3 = (project in file("out_v2_3"))
@@ -96,7 +96,7 @@ lazy val deps_v2_4 = Seq(
 lazy val settings_v2_4 = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v2_4,
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.12"
 )
 
 lazy val out_v2_4 = (project in file("out_v2_4"))
