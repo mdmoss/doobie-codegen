@@ -141,7 +141,7 @@ object Runner {
     val schemaImplicitlyAllowed = target.filterSchemasAndTables.isEmpty && !ref.schema.exists(DefaultExcludeSchemas.contains)
     val schemaExplicitlyAllowed = allowedForSchema.isDefined
 
-    val tableImplicitlyAllowed = allowedForSchema.forall(_.isEmpty) && DefaultExcludeTables.contains(ref.sqlName)
+    val tableImplicitlyAllowed = allowedForSchema.forall(_.isEmpty) && !DefaultExcludeTables.contains(ref.sqlName)
     val tableExplicitlyAllowed = allowedForSchema.exists(_.contains(ref.sqlName))
 
     (schemaImplicitlyAllowed || schemaExplicitlyAllowed) && (tableImplicitlyAllowed || tableExplicitlyAllowed)
