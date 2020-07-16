@@ -218,9 +218,7 @@ class Analysis(val model: DbModel, val target: Target) {
   }
 
   def insertMany(table: Table): InsertMany = {
-
     val shape = rowShape(table)
-    val rowType = rowNewType(table)
 
     val values = rowNewType(table)._1.map(r =>
       if   (isNoInsert(table, r)) "default"
@@ -232,8 +230,7 @@ class Analysis(val model: DbModel, val target: Target) {
          |Update[${shape._2.symbol}](sql)
          |""".stripMargin
 
-    val param = FunctionParam("values", ScalaType(s"List[${shape._2.qualifiedSymbol}]", "List()", None))
-    val fn = FunctionDef(Some(privateScope(table)), "insertMany", List(param), "Update[Shape]", body)
+    val fn = FunctionDef(None, "insertMany", List(), "Update[Shape]", body)
     InsertMany(fn)
   }
 
@@ -255,27 +252,29 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def createMany(table: Table): CreateMany = {
     val im = insertMany(table)
+    val shape = rowShape(table)
     val rowType = rowNewType(table)
+    val param = FunctionParam("values", ScalaType(s"List[${shape._2.qualifiedSymbol}]", "List()", None))
 
-    val insertData = im.fn.params.map(_.name).mkString(", ")
+    val insertData = param.name
     val columns = rowType._1.flatMap(_.source).map(s => "\"" + s.sqlName.toLowerCase + "\"").mkString(", ")
 
     val pBody =
-      s"insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)"
+      s"insertMany.updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)"
 
-    val process = FunctionDef(Some(privateScope(table)), "createManyP", im.fn.params, s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
+    val process = FunctionDef(Some(privateScope(table)), "createManyP", List(param), s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
 
-    val anyParamsNonEmpty = im.fn.params.map(p => s"${p.name}.nonEmpty").mkString(" || ")
+    val anyParamsNonEmpty = s"${param.name}.nonEmpty"
 
     val body =
-      s"if ($anyParamsNonEmpty) createManyP(${im.fn.params.map(_.name).mkString(", ")}).runLog.map(_.toList) else List.empty.point[ConnectionIO]"
+      s"if ($anyParamsNonEmpty) createManyP(${param.name}).runLog.map(_.toList) else List.empty.point[ConnectionIO]"
 
-    val list = FunctionDef(None, "createMany", im.fn.params, s"ConnectionIO[List[${rowType._2.symbol}]]", body)
+    val list = FunctionDef(None, "createMany", List(param), s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
     val vBody =
-      s"if ($anyParamsNonEmpty) insertMany(${im.fn.params.map(_.name).mkString(", ")}).updateMany[List]($insertData).map(_ => ()) else ().point[ConnectionIO]"
+      s"if ($anyParamsNonEmpty) insertMany.updateMany[List]($insertData).map(_ => ()) else ().point[ConnectionIO]"
 
-    val void = FunctionDef(None, "createManyVoid", im.fn.params, "ConnectionIO[Unit]", vBody)
+    val void = FunctionDef(None, "createManyVoid", List(param), "ConnectionIO[Unit]", vBody)
     CreateMany(process, list, void)
   }
 
