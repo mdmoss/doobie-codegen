@@ -1,6 +1,6 @@
 val commonSettings = Seq(
   organization := "mdmoss",
-  scalaVersion := "2.11.7",
+  scalaVersion := "2.11.12",
   scalacOptions ++= Seq("-deprecation", "-feature"),
   scalacOptions in Test ++= Seq("-Yrangepos")
 )
@@ -31,7 +31,8 @@ val commonResolvers = Seq(
   Resolver.sonatypeRepo("snapshots")
 )
 
-addCommandAlias("fullTest", 
+addCommandAlias("fullTest",
+  ";bootstrap/run;bootstrap/run" + // Bootstrap twice, to ensure that the output will compile
   ";out_v2_3/test;test_v2_3/test" + 
   ";out_v2_4/test;test_v2_4/test" + 
   ";out_v3_0/test;test_v3_0/test" +
@@ -46,7 +47,8 @@ lazy val main = (project in file(""))
   .settings(
     /* Don't attempt to compile the sample code. */
     sourcesInBase := false,
-    libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4"
+    libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.4",
+    libraryDependencies ++= deps_v4_scala_either
   )
   .settings(
     name := "doobie-codegen"
@@ -71,7 +73,7 @@ lazy val deps_v2_3 = Seq(
 lazy val settings_v2_3 = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v2_3,
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.12"
 )
 
 lazy val out_v2_3 = (project in file("out_v2_3"))
@@ -94,7 +96,7 @@ lazy val deps_v2_4 = Seq(
 lazy val settings_v2_4 = Seq(
   resolvers ++= commonResolvers,
   libraryDependencies ++= deps_v2_4,
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.12"
 )
 
 lazy val out_v2_4 = (project in file("out_v2_4"))
@@ -178,3 +180,7 @@ lazy val out_v4_scala_either = (project in file("out_v4_scala_either"))
 lazy val test_v4_scala_either = (project in file("test_v4_scala_either"))
   .settings(settings_v4_scala_either)
   .dependsOn(out_v4_scala_either)
+
+lazy val bootstrap = (project in file("bootstrap"))
+  .settings(commonSettings:_*)
+  .dependsOn(main)

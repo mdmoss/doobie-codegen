@@ -81,10 +81,16 @@ class Analysis(val model: DbModel, val target: Target) {
 
   def privateScope(table: Table) = "gen"
 
-  def resolve(ref: TableRef): Table = model.tables.filter { t =>
-    t.ref.schema.map(_.toLowerCase) == ref.schema.map(_.toLowerCase) &&
-    t.ref.sqlName.toLowerCase == ref.sqlName.toLowerCase
-  }.head
+  def resolve(ref: TableRef): Table = model.tables.find { t =>
+    equalRef(t.ref, ref)
+  } match {
+    case Some(table) => table
+    case None =>
+      println("Are we missing a table? Couldn't find a ref")
+      println(ref)
+      assert(false)
+      null
+  }
 
   def columnOptions(table: Table, column: Column): List[GenOption] = {
     target.columnOptions.get(table.ref.fullName).flatMap(_.get(column.sqlName)).toList.flatten
@@ -107,7 +113,7 @@ class Analysis(val model: DbModel, val target: Target) {
   def isNoWrite(table: Table, rowRepField: RowRepField): Boolean = isNoWrite(table, rowRepField.source.head)
   def isNoInsert(table: Table, rowRepField: RowRepField): Boolean = isNoInsert(table, rowRepField.source.head)
 
-  def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.columns.filter(_.isPrimaryKey) match {
+  def pkNewType(table: Table): Option[(List[RowRepField], ScalaType)] = table.columns.filter(_.isSingularPrimaryKey) match {
     case Nil      => None
     case c :: Nil =>
       val rep = c.scalaRep(table).copy(scalaName = "value")
@@ -126,7 +132,7 @@ class Analysis(val model: DbModel, val target: Target) {
       }
     }
 
-    val parts = pkPart.toList ++ table.nonPrimaryKeyColumns.map(_.scalaRep(table))
+    val parts = pkPart.toList ++ table.nonSingularPrimaryKeyColumns.map(_.scalaRep(table))
     val arb = merge("Row", parts.map(_.scalaType))
     (parts, ScalaType("Row", arb, Some(fullTarget(table))))
   }
@@ -147,7 +153,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
   /* We need this to get around casing issues for now. Todo fix this */
   def equalRef(t1: TableRef, t2: TableRef): Boolean = {
-    t1.schema.map(_.toLowerCase) == t2.schema.map(_.toLowerCase) &&
+    t1.schema.filter(_ != "public").map(_.toLowerCase) == t2.schema.filter(_ != "public").map(_.toLowerCase) &&
     t1.sqlName.toLowerCase == t2.sqlName.toLowerCase
   }
 
@@ -410,7 +416,7 @@ class Analysis(val model: DbModel, val target: Target) {
     field.source.head.references match {
       case None => 1
       case Some(ref) =>
-        val lower = model.tables.find(_.ref == ref.table).get
+        val lower = model.tables.find { t => equalRef(t.ref, ref.table)}.get
         val lowerField = rowNewType(lower)._1.find(_.source.head.sqlName == ref.column)
         lowerField match {
           case None => 2
@@ -433,7 +439,7 @@ class Analysis(val model: DbModel, val target: Target) {
       FunctionParam(pk._1.head.source.head.scalaName, app(app(pk._2, "Seq"), "Option"))
     }.toList ++
     multigetColumns.flatMap {
-      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+      case c @ Column(colName, colType, copProps) if c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey =>
         Seq(FunctionParam(c.scalaName, app(app(c.scalaType, "Seq"), "Option")))
 
       case _ => Seq()
@@ -449,7 +455,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
     }.toList ++ multigetColumns.zipWithIndex.flatMap {
-      case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+      case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey =>
         val rowRep = rowType._1.find(_.source.head == c).get
         val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
         val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
@@ -494,7 +500,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val excludedColumns: Set[String] = statementOptions(t).collect {
       case rm: StatementTypes.RefinedMultiget => rm.excludeColumns.getOrElse(Nil)
     }.flatten.toSet
-    c.reference.isDefined && !c.isNullible && !c.isPrimaryKey && !excludedColumns.contains(c.sqlName)
+    c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey && !excludedColumns.contains(c.sqlName)
   }
 
   private def multigetBody(
@@ -535,7 +541,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
         pkNewType(table).toList.flatMap { pk =>
 
-          val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, pk._2)))
+          val params = pluralise(List(FunctionParam(table.singularPrimaryKeyColumns.head.scalaName, pk._2)))
 
           val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, None)
 
@@ -545,20 +551,20 @@ class Analysis(val model: DbModel, val target: Target) {
 
         } ++ pkNewType(table).toList.flatMap { pk =>
 
-          val params = pluralise(List(FunctionParam(table.primaryKeyColumns.head.scalaName, table.primaryKeyColumns.head.scalaType)))
+          val params = pluralise(List(FunctionParam(table.singularPrimaryKeyColumns.head.scalaName, table.singularPrimaryKeyColumns.head.scalaType)))
 
           val body = multigetBody(base, params.map(_.name).head, 0, base.fn.params.length - 1, Some(s"${pk._2.symbol}(_)"), groupByInnerValue = true)
 
-          if (table.primaryKeyColumns.head.references.isDefined) {
+          if (table.singularPrimaryKeyColumns.head.references.isDefined) {
             List(
-              MultiGet(FunctionDef(None, s"multigetBy${table.primaryKeyColumns.head.unsafeScalaName.capitalize}", params, returnType, body))
+              MultiGet(FunctionDef(None, s"multigetBy${table.singularPrimaryKeyColumns.head.unsafeScalaName.capitalize}", params, returnType, body))
             )
           } else {
             List()
           }
 
         } ++table.columns.filter(isInMultiget(table, _)).zipWithIndex.flatMap {
-          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey =>
 
             val params = pluralise(List(FunctionParam(c.scalaName, c.scalaType)))
 
@@ -570,7 +576,7 @@ class Analysis(val model: DbModel, val target: Target) {
 
           case  _ => List()
         } ++ table.columns.filter(isInMultiget(table, _)).zipWithIndex.flatMap {
-          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isPrimaryKey =>
+          case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey =>
 
             val params = List(FunctionParam(c.scalaName, c.scalaType))
 
@@ -605,7 +611,7 @@ class Analysis(val model: DbModel, val target: Target) {
       s"""sql\"\"\"
          |  UPDATE ${table.ref.fullName}
          |  SET $innerUpdates
-         |  WHERE ${table.primaryKeyColumns.head.sqlName} = $${row.${table.primaryKeyColumns.head.scalaName}}
+         |  WHERE ${table.singularPrimaryKeyColumns.head.sqlName} = $${row.${table.singularPrimaryKeyColumns.head.scalaName}}
          |\"\"\".update
          |""".stripMargin
 

@@ -6,6 +6,7 @@ import java.nio.file.Paths
 import mdmoss.doobiegen.GenOptions.{GenOption, Ignore}
 import mdmoss.doobiegen.StatementTypes.Statement
 import mdmoss.doobiegen.output.SourceWriter
+import mdmoss.doobiegen.sql.TableRef
 import org.parboiled2.ParseError
 
 import scala.collection.mutable.ListBuffer
@@ -16,6 +17,8 @@ object Runner {
   sealed trait TestDBSource
   case class TestDatabase(driver: String, url: String, username: String, password: String) extends TestDBSource
   case class InsertString(source: String) extends TestDBSource
+
+  case class Database(driver: String, url: String, username: String, password: String)
 
   sealed trait TargetVersion
 
@@ -31,34 +34,22 @@ object Runner {
     testDb: TestDBSource,
     src: String,
     `package`: String,
-    statements: Option[Map[String, List[Statement]]],
-    columnOptions: Map[String, Map[String, List[GenOption]]],
+    statements: Option[Map[String, List[Statement]]] = None,
+    columnOptions: Map[String, Map[String, List[GenOption]]] = Map(),
     quiet: Boolean = false,
     targetVersion: TargetVersion = TargetVersion.DoobieV023,
     // This is mainly an override for testing
-    tableSpecificStatements: Map[String, List[Statement]]
+    tableSpecificStatements: Map[String, List[Statement]] = Map.empty,
+    generateFromTestDb: Option[Database] = None,
+
+    /**
+      * Filter output to particular schemas or tables.
+      * An empty map will generate for all schemas (except information_schema and pg_catalog)
+      * An empty list will generate all tables within a schema.
+      */
+    filterSchemasAndTables: Map[String, List[String]] = Map()
   ) {
-
     def enclosingPackage = `package`.split('.').reverse.headOption
-  }
-
-  object Target {
-    def apply(
-      schemaDir: String,
-      testDb: TestDatabase,
-      src: String,
-      `package`: String
-    ): Target = Target(
-      schemaDir = schemaDir,
-      testDb = testDb,
-      src = src,
-      `package` = `package`,
-      statements = None,
-      columnOptions = Map(),
-      quiet = false,
-      targetVersion = TargetVersion.DoobieV023,
-      tableSpecificStatements = Map.empty[String, List[Statement]]
-    )
   }
 
   val Default = Target(
@@ -73,7 +64,7 @@ object Runner {
     `package` = "mdmoss.doobiegen.db"
   )
 
-  def run(target: Target) = {
+  def loadSqlModel(target: Target) = {
     /* We could do something more intelligent here, but this works for now */
     val sql = {
       import scala.sys.process._
@@ -131,9 +122,50 @@ object Runner {
 
     if (statements.length != parsers.length) throw new Throwable("Failed parsing. Exiting.")
 
-    val model = statements.foldLeft(DbModel.empty)(DbModel.update)
+    statements.foldLeft(DbModel.empty)(DbModel.update)
+  }
 
-    val filteredModel = FilterIgnoredFields(model, target)
+  val DefaultExcludeSchemas = List(
+    "information_schema",
+    "pg_catalog"
+  )
+
+  val DefaultExcludeTables = List(
+    "geography_columns",
+    "geometry_columns",
+    "raster_columns",
+    "raster_overviews"
+  )
+
+  def isAllowedByFilter(target: Target, ref: TableRef): Boolean = {
+    val allowedForSchema = target.filterSchemasAndTables.get(ref.schema.getOrElse("public"))
+
+    val schemaImplicitlyAllowed = target.filterSchemasAndTables.isEmpty && !ref.schema.exists(DefaultExcludeSchemas.contains)
+    val schemaExplicitlyAllowed = allowedForSchema.isDefined
+
+    val tableImplicitlyAllowed = allowedForSchema.forall(_.isEmpty) && !DefaultExcludeTables.contains(ref.sqlName)
+    val tableExplicitlyAllowed = allowedForSchema.exists(_.contains(ref.sqlName))
+
+    (schemaImplicitlyAllowed || schemaExplicitlyAllowed) && (tableImplicitlyAllowed || tableExplicitlyAllowed)
+  }
+
+  def run(target: Target) = {
+    val model = target.generateFromTestDb match {
+      case Some(db) => ModelFromDb(target, db)
+      case None => loadSqlModel(target)
+    }
+
+    val targetSchemas = model.tables.filter(t => isAllowedByFilter(target, t.ref))
+
+    if (!target.quiet) {
+      targetSchemas.foreach { s =>
+        println("========================================================================")
+        println(s.ref)
+        s.properties.foreach(println)
+      }
+    }
+
+    val filteredModel = FilterIgnoredFields(model.copy(tables = targetSchemas), target)
 
     val analysis = new Analysis(filteredModel, target)
 

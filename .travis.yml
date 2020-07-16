@@ -1,7 +1,7 @@
-dist: trusty
+dist: bionic
 language: scala
 scala:
-    2.11.8
+    2.11.12
 
 sudo: required
 
@@ -14,17 +14,17 @@ services:
 addons:
   apt:
     packages:
-    - postgresql-9.5
-    - postgresql-contrib-9.5
-    - postgresql-9.5-postgis-2.2
-    - postgresql-9.5-postgis-2.2-scripts
-  postgresql: "9.5"
-jdk: oraclejdk8
+    - postgresql-11
+    - postgresql-contrib-11
+    - postgresql-11-postgis-2.5
+    - postgresql-11-postgis-2.5-scripts
+  postgresql: "11"
+jdk: oraclejdk11
 
 before_script:
-  - sudo sh -c 'echo "port = 5432" >> /etc/postgresql/9.5/main/postgresql.conf'
-  - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
-  - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/9.5/main/pg_hba.conf
+  - sudo sh -c 'echo "port = 5432" >> /etc/postgresql/11/main/postgresql.conf'
+  - sudo sed -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/11/main/pg_hba.conf
+  - sudo sed -i -e '/local.*all.*all/ s/\(md5\|peer\)/trust/' /etc/postgresql/11/main/pg_hba.conf
   - sudo service postgresql restart
   - sudo -u postgres psql -c "create extension postgis"
   - sudo -u postgres psql -c "CREATE USER test; ALTER USER test WITH PASSWORD 'test'; ALTER USER test WITH SUPERUSER"
