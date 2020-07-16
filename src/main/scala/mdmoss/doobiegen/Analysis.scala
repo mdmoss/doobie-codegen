@@ -218,9 +218,7 @@ class Analysis(val model: DbModel, val target: Target) {
   }
 
   def insertMany(table: Table): InsertMany = {
-
     val shape = rowShape(table)
-    val rowType = rowNewType(table)
 
     val values = rowNewType(table)._1.map(r =>
       if   (isNoInsert(table, r)) "default"
