@@ -233,7 +233,7 @@ class Analysis(val model: DbModel, val target: Target) {
          |""".stripMargin
 
     val param = FunctionParam("values", ScalaType(s"List[${shape._2.qualifiedSymbol}]", "List()", None))
-    val fn = FunctionDef(Some(privateScope(table)), "insertMany", List(param), "Update[Shape]", body)
+    val fn = FunctionDef(None, "insertMany", List(param), "Update[Shape]", body)
     InsertMany(fn)
   }
 
