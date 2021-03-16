@@ -262,17 +262,17 @@ class Analysis(val model: DbModel, val target: Target) {
     val pBody =
       s"insertMany.updateManyWithGeneratedKeys[${rowType._2.symbol}]($columns)($insertData)"
 
-    val process = FunctionDef(Some(privateScope(table)), "createManyP", List(param), s"scalaz.stream.Process[ConnectionIO, ${rowType._2.symbol}]", pBody)
+    val process = FunctionDef(Some(privateScope(table)), "createManyP", List(param), s"fs2.Stream[ConnectionIO, ${rowType._2.symbol}]", pBody)
 
     val anyParamsNonEmpty = s"${param.name}.nonEmpty"
 
     val body =
-      s"if ($anyParamsNonEmpty) createManyP(${param.name}).runLog.map(_.toList) else List.empty.point[ConnectionIO]"
+      s"if ($anyParamsNonEmpty) createManyP(${param.name}).compile.toVector.map(_.toList) else List.empty.pure[ConnectionIO]"
 
     val list = FunctionDef(None, "createMany", List(param), s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
     val vBody =
-      s"if ($anyParamsNonEmpty) insertMany.updateMany[List]($insertData).map(_ => ()) else ().point[ConnectionIO]"
+      s"if ($anyParamsNonEmpty) insertMany.updateMany[List]($insertData).map(_ => ()) else ().pure[ConnectionIO]"
 
     val void = FunctionDef(None, "createManyVoid", List(param), "ConnectionIO[Unit]", vBody)
     CreateMany(process, list, void)
@@ -359,7 +359,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val bigintMax = "9223372036854775807L"
 
     val body =
-      s"allInner(0, $bigintMax).list"
+      s"allInner(0, $bigintMax).to[List]"
 
     val call = FunctionDef(None, "allUnbounded", Seq(), s"ConnectionIO[List[${rowType._2.symbol}]]", body)
 
@@ -388,7 +388,7 @@ class Analysis(val model: DbModel, val target: Target) {
     val inner = FunctionDef(Some(privateScope(table)), "allInner", offsetLimit, s"Query0[${rowType._2.symbol}]", innerBody)
 
     val outerBody =
-      "allInner(offset, limit).list"
+      "allInner(offset, limit).to[List]"
 
     val outer = FunctionDef(None, "all", offsetLimit, s"ConnectionIO[List[${rowType._2.symbol}]]", outerBody)
 
@@ -450,14 +450,14 @@ class Analysis(val model: DbModel, val target: Target) {
       val arrayName = pk._1.head.source.head.scalaName
 
       val unwraps = List.fill(unwrapsNeeded(pk._1.head))("value").mkString(".")
-      val matchArray = s"$${{${arrayName}}.toSeq.flatten.map(_.$unwraps).toArray}"
+      val matchArray = s"$${{${arrayName}}.toVector.flatten.map(_.$unwraps)}"
 
       s"($${$arrayName.isEmpty} OR ${pk._1.head.source.head.sqlNameInTable(table)} = ANY($matchArray))"
     }.toList ++ multigetColumns.zipWithIndex.flatMap {
       case (c@Column(colName, colType, copProps), i) if c.reference.isDefined && !c.isNullible && !c.isSingularPrimaryKey =>
         val rowRep = rowType._1.find(_.source.head == c).get
         val unwraps = List.fill(unwrapsNeeded(rowRep) - 1)("value").mkString(".")
-        val matchArray = s"$${{${c.scalaName}}.toSeq.flatten.map(_.${unwraps}).toArray}"
+        val matchArray = s"$${{${c.scalaName}}.toVector.flatten.map(_.${unwraps})}"
 
         Seq(
           s"($${${c.scalaName}.isEmpty} OR ${c.sqlNameInTable(table)} = ANY($matchArray))"
@@ -521,10 +521,10 @@ class Analysis(val model: DbModel, val target: Target) {
     s"""if ($listParamName.nonEmpty) {
        |  val distinctValues = $listParamName.distinct
        |  for {
-       |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).list
+       |    resultRaw    <- multigetInnerBase(${baseParams.mkString(", ")}).to[List]
        |    resultGrouped = resultRaw.groupBy($groupBy)
        |  } yield $listParamName.toList.flatMap(x => resultGrouped.getOrElse(x, List.empty))
-       |} else List.empty.point[ConnectionIO]
+       |} else List.empty.pure[ConnectionIO]
        |""".stripMargin
   }
 
@@ -582,7 +582,7 @@ class Analysis(val model: DbModel, val target: Target) {
             val paramsBefore = i + numPkFields
             val paramsAfter = base.fn.params.length - (paramsBefore + 1)
             val baseParams = List.fill(paramsBefore)("None") ++ List(s"Some(Seq(${params.map(_.name).head}))") ++ List.fill(paramsAfter)("None")
-            val body = s"multigetInnerBase(${baseParams.mkString(", ")}).list"
+            val body = s"multigetInnerBase(${baseParams.mkString(", ")}).to[List]"
 
             List(MultiGet(FunctionDef(None, s"getBy${c.unsafeScalaName.capitalize}", params, returnType, body)))
 
@@ -672,8 +672,8 @@ class Analysis(val model: DbModel, val target: Target) {
             case sql.Text            => ScalaType("String", "\"\"", None)
             case sql.TimestampTZ     => ScalaType("Timestamp", "new Timestamp(0L)", None)
             case sql.Timestamp       => ScalaType("LocalDateTime", "LocalDateTime.of(1, 1, 1, 1, 1)", None)
-            case sql.JsonB           => ScalaType("Json", "Argonaut.jEmptyObject", Some("argonaut"))
-            case sql.Json            => ScalaType("Json", "Argonaut.jEmptyObject", Some("argonaut"))
+            case sql.JsonB           => ScalaType("Json", "Argonaut.jEmptyObject", Some("io.circe"))
+            case sql.Json            => ScalaType("Json", "Argonaut.jEmptyObject", Some("io.circe"))
             case sql.Geometry        => ScalaType("PGgeometry", "new PGgeometry()", None)
             case sql.SmallInt        => ScalaType("Short", "0.toShort", None)
             case sql.Time            => ScalaType("Time", "new Time(0L)", None)

@@ -27,6 +27,7 @@ object Runner {
     case object DoobieV024 extends TargetVersion
     case object DoobieV030 extends TargetVersion
     case object DoobieV04 extends TargetVersion
+    case object DoobieV0_12_1 extends TargetVersion
   }
 
   case class Target(

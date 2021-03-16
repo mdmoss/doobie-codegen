@@ -52,11 +52,14 @@ class Generator(analysis: Analysis) {
         s"""package ${a.targetPackage(t)}
             |
             |/* Todo handle imports better */
-            |import doobie.imports._
+            |import doobie._
+            |import doobie.implicits._
             |import java.sql.{Date, Timestamp, Time}
             |import java.util.UUID
             |import java.time.{LocalDate, LocalDateTime}
-            |import scalaz._, Scalaz._
+            |import cats._
+            |import cats.effect._
+            |import cats.implicits._
             |
             |${genImports(t)}
             |
@@ -68,21 +71,6 @@ class Generator(analysis: Analysis) {
             |
             |  ${genShapeType(t).indented()}
             |
-            |  ${
-                  {if (v4Compat) {
-                    s"""
-                       |${CompositeGen.id(this, t).indented()}
-                       |
-                       |${CompositeGen.row(this, t).indented()}
-                       |
-                       |${CompositeGen.shape(this, t).indented()}
-                       |
-                       |
-                     """.stripMargin
-                  } else ""
-
-                }.indented()
-            }
             |}
             |trait ${a.targetObject(t)} {
             |  import ${a.targetObject(t)}._
@@ -160,6 +148,7 @@ class Generator(analysis: Analysis) {
             |import java.time.{LocalDate, LocalDateTime}
             |import org.specs2.mutable.Specification
             |import scalaz.concurrent.Task
+            |
             |
             |${if (OldStyleContribImports.contains(target.targetVersion))
                 "import doobie.contrib.specs2.analysisspec.AnalysisSpec"
@@ -275,20 +264,20 @@ class Generator(analysis: Analysis) {
 
 
     List(
-      ifElseEmpty(types.contains(sql.JsonB), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
-      ifElseEmpty(types.contains(sql.Json), List("argonaut.{Json, Parse}", "org.postgresql.util.PGobject")),
+      ifElseEmpty(types.contains(sql.JsonB), List("doobie.postgres.circe.jsonb.implicits._")),
+      ifElseEmpty(types.contains(sql.Json), List("doobie.postgres.circe.json.implicits._")),
       ifElseEmpty(types.contains(sql.Geometry),
         if (OldStyleContribImports.contains(target.targetVersion)) {
           List("org.postgis._", "doobie.contrib.postgresql.pgtypes._")
         } else {
-          List("org.postgis._", "doobie.postgres.pgistypes._")
+          List("org.postgis._", "import doobie.postgres.pgisimplicits._")
         }),
       ifElseEmpty(
         hasTargetStatements(table, StatementTypes.MultiGet) || getTypes(table).contains(sql.Uuid),
         if (OldStyleContribImports.contains(target.targetVersion)) {
           List("doobie.contrib.postgresql.pgtypes._")
         } else {
-          List("doobie.postgres.imports._")
+          List("doobie.postgres._", "doobie.postgres.implicits._")
         }
       )
     )
@@ -341,11 +330,16 @@ class Generator(analysis: Analysis) {
       ""
     }
 
+    val timestampMeta = s"""implicit val TimestampMeta: Meta[java.sql.Timestamp] = JavaTimeInstantMeta.timap(java.sql.Timestamp.from)(_.toInstant)"""
+    val timeMeta = s"""implicit val TimeMeta: Meta[java.sql.Time] = JavaTimeLocalTimeMeta.timap(java.sql.Time.valueOf)(_.toLocalTime)"""
+
     List(
-      jsonMeta,
-      uuidArrayMeta,
-      localDateTimeMeta,
-      localDateMeta
+//      jsonMeta,
+//      uuidArrayMeta,
+//      localDateTimeMeta,
+//      localDateMeta,
+      timestampMeta,
+      timeMeta
     ).mkString("\n\n")
   }
 

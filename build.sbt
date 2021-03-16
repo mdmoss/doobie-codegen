@@ -184,3 +184,14 @@ lazy val test_v4_scala_either = (project in file("test_v4_scala_either"))
 lazy val bootstrap = (project in file("bootstrap"))
   .settings(commonSettings:_*)
   .dependsOn(main)
+
+lazy val out_v12_1 = (project in file("out_v12"))
+  .settings(
+    scalaVersion := "2.12.12",
+    libraryDependencies ++= Seq(
+      "org.tpolecat"  %% "doobie-core"       % "0.12.1",
+      "org.tpolecat"  %% "doobie-postgres"   % "0.12.1",
+      "org.tpolecat" %% "doobie-postgres-circe" % "0.12.1",
+      "net.postgis"   % "postgis-jdbc"       % "2.3.0"
+    )
+  )
