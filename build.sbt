@@ -32,13 +32,13 @@ val commonResolvers = Seq(
 )
 
 addCommandAlias("fullTest",
-  ";bootstrap/run;bootstrap/run" + // Bootstrap twice, to ensure that the output will compile
-  ";out_v2_3/test;test_v2_3/test" + 
-  ";out_v2_4/test;test_v2_4/test" + 
-  ";out_v3_0/test;test_v3_0/test" +
-  ";out_v4/test;test_v4/test" +
-  ";out_v4_scala_either/test;test_v4_scala_either/test"
-
+//  ";bootstrap/run;bootstrap/run" + // Bootstrap twice, to ensure that the output will compile
+//  ";out_v2_3/test;test_v2_3/test" +
+//  ";out_v2_4/test;test_v2_4/test" +
+//  ";out_v3_0/test;test_v3_0/test" +
+//  ";out_v4/test;test_v4/test" +
+//  ";out_v4_scala_either/test;test_v4_scala_either/test"
+  ";out_v12_1/test"
 )
 
 /* General settings */
