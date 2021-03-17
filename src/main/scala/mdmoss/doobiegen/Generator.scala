@@ -143,33 +143,46 @@ class Generator(analysis: Analysis) {
         s"""package ${a.targetPackage(t)}
             |
             |/* Todo handle imports better */
-            |import doobie.imports._
+            |import doobie._
+            |import doobie.implicits._
             |import java.sql.{Date, Timestamp, Time}
             |import java.time.{LocalDate, LocalDateTime}
             |import org.specs2.mutable.Specification
-            |import scalaz.concurrent.Task
+            |import cats._
+            |import cats.data._
+            |import cats.effect._
+            |import cats.implicits._
             |
             |
             |${if (OldStyleContribImports.contains(target.targetVersion))
                 "import doobie.contrib.specs2.analysisspec.AnalysisSpec"
                else
-                "import doobie.specs2.imports._"
+                //"import doobie.specs2.imports._"
+                ""
              }
             |
-            |import scalaz._, Scalaz._
             |import org.postgis._
+            |import doobie.postgres._
+            |import doobie.postgres.implicits._
             |import java.util.UUID
             |
-            |object ${a.targetObject(t)}Spec extends Specification with AnalysisSpec {
+            |${genImports(t)}
+            |
+            |object ${a.targetObject(t)}Spec extends Specification with doobie.specs2.IOChecker {
+            |
+            |  implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
+            |  implicit val TimestampMeta: Meta[java.sql.Timestamp] = JavaTimeInstantMeta.timap(java.sql.Timestamp.from)(_.toInstant)
+            |  implicit val TimeMeta: Meta[java.sql.Time] = JavaTimeLocalTimeMeta.timap(java.sql.Time.valueOf)(_.toLocalTime)
             |
             |  ${
                   tr match {
                     case TestDatabase(driver, url, username, password) =>
-                      if (TestInTaskVersions.contains(target.targetVersion)) {
-                        s"""val transactor = DriverManagerTransactor[Task]("$driver", "$url", "$username", "$password")"""
-                      } else {
-                        s"""val transactor = DriverManagerTransactor[IOLite]("$driver", "$url", "$username", "$password")"""
-                      }
+//                      if (TestInTaskVersions.contains(target.targetVersion)) {
+//                        s"""val transactor = DriverManagerTransactor[Task]("$driver", "$url", "$username", "$password")"""
+//                      } else {
+//                        s"""val transactor = DriverManagerTransactor[IOLite]("$driver", "$url", "$username", "$password")"""
+//                      }
+                      s"""val transactor = Transactor.fromDriverManager[IO]("$driver", "$url", "$username", "$password", Blocker.liftExecutionContext(ExecutionContexts.synchronous))"""
 
                     case InsertString(str) => str
                   }
@@ -190,6 +203,8 @@ class Generator(analysis: Analysis) {
             |  ${a.baseMultiget(t, fragmentAvailable).map(f => checkTarget(StatementTypes.MultiGet, checkTest(t, f.fn))).getOrElse("")}
             |
             |  ${a.update(t).map { u => checkTarget(StatementTypes.Update, checkTest(t, u.inner)) }.mkString("\n") }
+            |
+
             |}
          """.stripMargin
 
